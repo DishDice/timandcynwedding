@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { api } from '../api'
+import { useData } from '../DataContext'
 import { DateInput } from '../components/DateInput'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
+import { PageShell } from '../components/PageShell'
 
 function rowClass(item) {
   if (!item.dueDate) return ''
@@ -43,60 +45,75 @@ function InlineCell({ value, onSave, type = 'text', className = '' }) {
       autoFocus
       onChange={e => setVal(e.target.value)}
       onBlur={save}
-      onKeyDown={e => e.key === 'Enter' && save()}
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }}
     />
   )
 }
 
 export default function Budget() {
-  const [categories, setCategories] = useState([])
-  const [items, setItems] = useState([])
-  const [config, setConfig] = useState({ totalBudget: 70000 })
+  const { config, budgetCategories: categories, setBudgetCategories: setCategories, budgetItems: items, setBudgetItems: setItems } = useData()
   const [toast, setToast] = useState('')
 
-  const load = useCallback(async () => {
-    const [data, cfg] = await Promise.all([
-      api.get('/api/budget'),
-      api.get('/api/config'),
-    ])
-    setCategories(data.categories)
-    setItems(data.items)
-    setConfig(cfg.config || { totalBudget: 70000 })
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
   const updateItem = async (id, changes) => {
-    const prev = items
-    setItems(items.map(i => i.id === id ? { ...i, ...changes, outstanding: (Number(changes.actual ?? i.actual) || 0) - (Number(changes.paid ?? i.paid) || 0) } : i))
+    let snapshot
+    setItems(prev => {
+      snapshot = prev
+      return prev.map(i => i.id === id ? { ...i, ...changes, outstanding: (Number(changes.actual ?? i.actual) || 0) - (Number(changes.paid ?? i.paid) || 0) } : i)
+    })
     try {
       await api.put(`/api/budget/item/${id}`, changes)
     } catch {
-      setItems(prev)
+      setItems(snapshot)
       setToast('Failed to save')
     }
   }
 
   const toggleCategory = async (cat) => {
     const collapsed = !cat.collapsed
-    setCategories(categories.map(c => c.id === cat.id ? { ...c, collapsed } : c))
-    await api.put(`/api/budget/category/${cat.id}`, { collapsed })
+    let snapshot
+    setCategories(prev => {
+      snapshot = prev
+      return prev.map(c => c.id === cat.id ? { ...c, collapsed } : c)
+    })
+    try {
+      await api.put(`/api/budget/category/${cat.id}`, { collapsed })
+    } catch {
+      setCategories(snapshot)
+      setToast('Failed to save')
+    }
   }
 
   const addItem = async (categoryId) => {
-    const item = await api.post('/api/budget/item', { categoryId })
-    setItems([...items, item])
+    try {
+      const item = await api.post('/api/budget/item', { categoryId })
+      setItems(prev => [...prev, item])
+    } catch {
+      setToast('Failed to add item')
+    }
   }
 
   const addCategory = async () => {
-    const cat = await api.post('/api/budget/category', { name: 'New Category' })
-    setCategories([...categories, cat])
+    try {
+      const cat = await api.post('/api/budget/category', { name: 'New Category' })
+      setCategories(prev => [...prev, cat])
+    } catch {
+      setToast('Failed to add category')
+    }
   }
 
   const deleteItem = async (id) => {
     if (!confirm('Delete this item?')) return
-    setItems(items.filter(i => i.id !== id))
-    await api.del(`/api/budget/item/${id}`)
+    let snapshot
+    setItems(prev => {
+      snapshot = prev
+      return prev.filter(i => i.id !== id)
+    })
+    try {
+      await api.del(`/api/budget/item/${id}`)
+    } catch {
+      setItems(snapshot)
+      setToast('Failed to delete')
+    }
   }
 
   const totalEstimate = items.reduce((s, i) => s + (Number(i.estimate) || 0), 0)
@@ -106,14 +123,14 @@ export default function Budget() {
   let rowNum = 0
 
   return (
-    <div>
+    <PageShell>
       <div className="page-header">
         <h2>Budget</h2>
         <p>Track estimates, payments, and outstanding balances</p>
       </div>
 
       <div className="summary-bar">
-        <div className="summary-item"><strong>${Number(config.totalBudget).toLocaleString()}</strong>Total Budget</div>
+        <div className="summary-item"><strong>${Number(config?.totalBudget || 70000).toLocaleString()}</strong>Total Budget</div>
         <div className="summary-item"><strong>${totalEstimate.toLocaleString()}</strong>Total Estimated</div>
         <div className="summary-item"><strong>${totalPaid.toLocaleString()}</strong>Total Paid</div>
         <div className="summary-item"><strong>${totalOutstanding.toLocaleString()}</strong>Outstanding</div>
@@ -137,7 +154,7 @@ export default function Budget() {
                     <td colSpan={11}>
                       <span className="collapse-icon">{cat.collapsed ? '▶' : '▼'}</span>
                       {cat.name}
-                      <button className="btn btn-sm" style={{ float: 'right', opacity: 1 }} onClick={e => { e.stopPropagation(); addItem(cat.id) }}>+ Item</button>
+                      <button type="button" className="btn btn-sm" style={{ float: 'right', opacity: 1 }} onClick={e => { e.stopPropagation(); addItem(cat.id) }}>+ Item</button>
                     </td>
                   </tr>
                   {!cat.collapsed && catItems.map(item => {
@@ -154,7 +171,7 @@ export default function Budget() {
                         <td><DateInput value={item.dueDate} onChange={v => updateItem(item.id, { dueDate: v })} /></td>
                         <td><StatusBadge value={item.status} type="budget" onChange={v => updateItem(item.id, { status: v })} /></td>
                         <td><InlineCell value={item.notes} onSave={v => updateItem(item.id, { notes: v })} /></td>
-                        <td><button className="btn-icon" onClick={() => deleteItem(item.id)} title="Delete">🗑</button></td>
+                        <td><button type="button" className="btn-icon" aria-label={`Delete ${item.item}`} onClick={() => deleteItem(item.id)}>🗑</button></td>
                       </tr>
                     )
                   })}
@@ -175,8 +192,8 @@ export default function Budget() {
         </table>
       </div>
 
-      <button className="btn" style={{ marginTop: 16 }} onClick={addCategory}>+ Add Category</button>
+      <button type="button" className="btn" style={{ marginTop: 16 }} onClick={addCategory}>+ Add Category</button>
       <Toast message={toast} onClose={() => setToast('')} />
-    </div>
+    </PageShell>
   )
 }

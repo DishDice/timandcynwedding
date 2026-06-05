@@ -32,7 +32,7 @@ export function StatusBadge({ value, type = 'budget', onChange }) {
     : value
 
   return (
-    <button type="button" className={`status-badge ${className}`} onClick={handleClick}>
+    <button type="button" className={`status-badge ${className}`} onClick={handleClick} aria-label={`Status: ${label}. Click to change.`}>
       {label}
     </button>
   )
@@ -49,7 +49,7 @@ export function AssignedPill({ value, onChange }) {
   }
 
   return (
-    <button type="button" className={`assigned-pill ${colors[value] || 'pill-both'}`} onClick={handleClick}>
+    <button type="button" className={`assigned-pill ${colors[value] || 'pill-both'}`} onClick={handleClick} aria-label={`Assigned to ${value}. Click to change.`}>
       {value}
     </button>
   )

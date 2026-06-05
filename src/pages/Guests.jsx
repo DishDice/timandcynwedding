@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api'
+import { useData } from '../DataContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
+import { PageShell, EmptyRow } from '../components/PageShell'
+
+const DEFAULT_GROUPS = ['Tim Family', 'Tim Friends', 'Cyn Family', 'Cyn Friends']
 
 function InlineCell({ value, onSave }) {
   const [editing, setEditing] = useState(false)
@@ -19,43 +23,56 @@ function InlineCell({ value, onSave }) {
 
   return (
     <input className="inline-edit" value={val} autoFocus
-      onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => e.key === 'Enter' && save()} />
+      onChange={e => setVal(e.target.value)} onBlur={save}
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }} />
   )
 }
 
 export default function Guests() {
-  const [guests, setGuests] = useState([])
-  const [filterGroup, setFilterGroup] = useState('All')
-  const [filterRsvp, setFilterRsvp] = useState('All')
+  const { guests, setGuests } = useData()
+  const [filterGroup, setFilterGroup] = useState(() => localStorage.getItem('guests:group') || 'All')
+  const [filterRsvp, setFilterRsvp] = useState(() => localStorage.getItem('guests:rsvp') || 'All')
   const [toast, setToast] = useState('')
 
-  const load = useCallback(async () => {
-    const data = await api.get('/api/guests')
-    setGuests(data)
-  }, [])
-
-  useEffect(() => { load() }, [load])
+  useEffect(() => { localStorage.setItem('guests:group', filterGroup) }, [filterGroup])
+  useEffect(() => { localStorage.setItem('guests:rsvp', filterRsvp) }, [filterRsvp])
 
   const updateGuest = async (id, changes) => {
-    const prev = guests
-    setGuests(guests.map(g => g.id === id ? { ...g, ...changes } : g))
+    let snapshot
+    setGuests(prev => {
+      snapshot = prev
+      return prev.map(g => g.id === id ? { ...g, ...changes } : g)
+    })
     try {
       await api.put(`/api/guests/${id}`, changes)
     } catch {
-      setGuests(prev)
+      setGuests(snapshot)
       setToast('Failed to save')
     }
   }
 
   const addGuest = async () => {
-    const g = await api.post('/api/guests', { name: 'New Guest' })
-    setGuests([...guests, g])
+    try {
+      const g = await api.post('/api/guests', { name: 'New Guest' })
+      setGuests(prev => [...prev, g])
+    } catch {
+      setToast('Failed to add guest')
+    }
   }
 
   const deleteGuest = async (id) => {
     if (!confirm('Delete this guest?')) return
-    setGuests(guests.filter(g => g.id !== id))
-    await api.del(`/api/guests/${id}`)
+    let snapshot
+    setGuests(prev => {
+      snapshot = prev
+      return prev.filter(g => g.id !== id)
+    })
+    try {
+      await api.del(`/api/guests/${id}`)
+    } catch {
+      setGuests(snapshot)
+      setToast('Failed to delete')
+    }
   }
 
   const exportCsv = () => {
@@ -69,7 +86,9 @@ export default function Guests() {
     a.click()
   }
 
-  const groups = ['All', 'Tim Family', 'Tim Friends', 'Cyn Family', 'Cyn Friends']
+  const allGroups = ['All', ...new Set([...DEFAULT_GROUPS, ...guests.map(g => g.group).filter(Boolean)])]
+  const assignableGroups = [...new Set([...DEFAULT_GROUPS, ...guests.map(g => g.group).filter(Boolean)])]
+
   const filtered = guests.filter(g => {
     if (filterGroup !== 'All' && g.group !== filterGroup) return false
     if (filterRsvp !== 'All' && g.rsvp !== filterRsvp.toLowerCase()) return false
@@ -82,7 +101,7 @@ export default function Guests() {
   const pending = guests.filter(g => g.rsvp === 'pending').length
 
   return (
-    <div>
+    <PageShell>
       <div className="page-header">
         <h2>Guests</h2>
         <p>{total} guests invited</p>
@@ -96,43 +115,44 @@ export default function Guests() {
       </div>
 
       <div className="filter-bar">
-        <label>Group</label>
-        <select className="filter-select" value={filterGroup} onChange={e => setFilterGroup(e.target.value)}>
-          {groups.map(g => <option key={g} value={g}>{g}</option>)}
+        <label htmlFor="guests-group">Group</label>
+        <select id="guests-group" className="filter-select" value={filterGroup} onChange={e => setFilterGroup(e.target.value)}>
+          {allGroups.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-        <label>RSVP</label>
-        <select className="filter-select" value={filterRsvp} onChange={e => setFilterRsvp(e.target.value)}>
+        <label htmlFor="guests-rsvp">RSVP</label>
+        <select id="guests-rsvp" className="filter-select" value={filterRsvp} onChange={e => setFilterRsvp(e.target.value)}>
           {['All', 'Pending', 'Confirmed', 'Declined'].map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-        <button className="btn btn-primary" onClick={addGuest}>+ Add Guest</button>
-        <button className="btn" onClick={exportCsv}>Export CSV</button>
+        <button type="button" className="btn btn-primary" onClick={addGuest}>+ Add Guest</button>
+        <button type="button" className="btn" onClick={exportCsv}>Export CSV</button>
       </div>
 
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th>Name</th><th>Group</th><th>RSVP</th><th>Dietary</th><th>Table</th><th>Notes</th><th></th></tr>
+            <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && <EmptyRow colSpan={7} />}
             {filtered.map(g => (
               <tr key={g.id}>
                 <td><InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} /></td>
                 <td>
-                  <select className="filter-select" value={g.group} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }}>
-                    {groups.slice(1).map(grp => <option key={grp} value={grp}>{grp}</option>)}
+                  <select className="filter-select" value={g.group} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }} aria-label={`Group for ${g.name}`}>
+                    {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
                   </select>
                 </td>
                 <td><StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} /></td>
                 <td><InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} /></td>
                 <td><InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} /></td>
                 <td><InlineCell value={g.notes} onSave={v => updateGuest(g.id, { notes: v })} /></td>
-                <td><button className="btn-icon" onClick={() => deleteGuest(g.id)}>🗑</button></td>
+                <td><button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => deleteGuest(g.id)}>🗑</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <Toast message={toast} onClose={() => setToast('')} />
-    </div>
+    </PageShell>
   )
 }

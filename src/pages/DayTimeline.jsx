@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api'
+import { useData } from '../DataContext'
 import { Toast } from '../components/Toast'
+import { PageShell } from '../components/PageShell'
 
 function InlineCell({ value, onSave }) {
   const [editing, setEditing] = useState(false)
@@ -18,69 +20,92 @@ function InlineCell({ value, onSave }) {
 
   return (
     <input className="inline-edit" value={val} autoFocus
-      onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => e.key === 'Enter' && save()} />
+      onChange={e => setVal(e.target.value)} onBlur={save}
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }} />
   )
 }
 
+function formatWeddingDate(dateStr) {
+  if (!dateStr) return 'Saturday 10 October 2026'
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
 export default function DayTimeline() {
-  const [entries, setEntries] = useState([])
+  const { config, timeline: entries, setTimeline: setEntries } = useData()
   const [toast, setToast] = useState('')
 
-  const load = useCallback(async () => {
-    const data = await api.get('/api/timeline')
-    setEntries(data)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
   const updateEntry = async (id, changes) => {
-    const prev = entries
-    setEntries(entries.map(e => e.id === id ? { ...e, ...changes } : e))
+    let snapshot
+    setEntries(prev => {
+      snapshot = prev
+      return prev.map(e => e.id === id ? { ...e, ...changes } : e)
+    })
     try {
       await api.put(`/api/timeline/${id}`, changes)
     } catch {
-      setEntries(prev)
+      setEntries(snapshot)
       setToast('Failed to save')
     }
   }
 
   const addEntry = async () => {
-    const e = await api.post('/api/timeline', { event: 'New event' })
-    setEntries([...entries, e])
+    try {
+      const e = await api.post('/api/timeline', { event: 'New event' })
+      setEntries(prev => [...prev, e])
+    } catch {
+      setToast('Failed to add entry')
+    }
   }
 
   const deleteEntry = async (id) => {
     if (!confirm('Delete this entry?')) return
-    setEntries(entries.filter(e => e.id !== id))
-    await api.del(`/api/timeline/${id}`)
+    let snapshot
+    setEntries(prev => {
+      snapshot = prev
+      return prev.filter(e => e.id !== id)
+    })
+    try {
+      await api.del(`/api/timeline/${id}`)
+    } catch {
+      setEntries(snapshot)
+      setToast('Failed to delete')
+    }
   }
 
   const moveEntry = async (id, direction) => {
     const idx = entries.findIndex(e => e.id === id)
     const newIdx = idx + direction
     if (newIdx < 0 || newIdx >= entries.length) return
+    const snapshot = entries
     const reordered = [...entries]
     const [item] = reordered.splice(idx, 1)
     reordered.splice(newIdx, 0, item)
     setEntries(reordered)
-    await api.put('/api/timeline/reorder/all', { ids: reordered.map(e => e.id) })
+    try {
+      await api.put('/api/timeline/reorder/all', { ids: reordered.map(e => e.id) })
+    } catch {
+      setEntries(snapshot)
+      setToast('Failed to reorder')
+    }
   }
 
   return (
-    <div>
+    <PageShell>
       <div className="page-header">
         <h2>Day Timeline</h2>
-        <p>Wedding day run sheet — Saturday 10 October 2026</p>
+        <p>Wedding day run sheet — {formatWeddingDate(config?.weddingDate)}</p>
       </div>
 
       <div className="filter-bar">
-        <button className="btn btn-primary" onClick={addEntry}>+ Add Entry</button>
+        <button type="button" className="btn btn-primary" onClick={addEntry}>+ Add Entry</button>
       </div>
 
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th>Time</th><th>Event</th><th>Location</th><th>Responsible</th><th>Notes</th><th>Actions</th></tr>
+            <tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Location</th><th scope="col">Responsible</th><th scope="col">Notes</th><th scope="col">Actions</th></tr>
           </thead>
           <tbody>
             {entries.map((e, i) => (
@@ -91,9 +116,9 @@ export default function DayTimeline() {
                 <td><InlineCell value={e.responsible} onSave={v => updateEntry(e.id, { responsible: v })} /></td>
                 <td><InlineCell value={e.notes} onSave={v => updateEntry(e.id, { notes: v })} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <button className="btn btn-sm" onClick={() => moveEntry(e.id, -1)} disabled={i === 0}>↑</button>
-                  <button className="btn btn-sm" onClick={() => moveEntry(e.id, 1)} disabled={i === entries.length - 1}>↓</button>
-                  <button className="btn-icon" style={{ opacity: 1 }} onClick={() => deleteEntry(e.id)}>🗑</button>
+                  <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                  <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, 1)} disabled={i === entries.length - 1} aria-label="Move down">↓</button>
+                  <button type="button" className="btn-icon" style={{ opacity: 1 }} aria-label={`Delete ${e.event}`} onClick={() => deleteEntry(e.id)}>🗑</button>
                 </td>
               </tr>
             ))}
@@ -101,6 +126,6 @@ export default function DayTimeline() {
         </table>
       </div>
       <Toast message={toast} onClose={() => setToast('')} />
-    </div>
+    </PageShell>
   )
 }

@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom'
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: '♥' },
-  { to: '/budget', label: 'Budget', icon: '$' },
-  { to: '/vendors', label: 'Vendors', icon: '★' },
-  { to: '/checklist', label: 'Checklist', icon: '✓' },
-  { to: '/guests', label: 'Guests', icon: '◎' },
-  { to: '/documents', label: 'Documents', icon: '▤' },
-  { to: '/timeline', label: 'Day Timeline', icon: '⏱' },
+  { to: '/', label: 'Dashboard', short: 'Home', icon: '♥' },
+  { to: '/budget', label: 'Budget', short: 'Budget', icon: '$' },
+  { to: '/vendors', label: 'Vendors', short: 'Vendors', icon: '★' },
+  { to: '/checklist', label: 'Checklist', short: 'Tasks', icon: '✓' },
+  { to: '/guests', label: 'Guests', short: 'Guests', icon: '◎' },
+  { to: '/documents', label: 'Documents', short: 'Docs', icon: '▤' },
+  { to: '/timeline', label: 'Day Timeline', short: 'Day', icon: '⏱' },
 ]
 
 export function Sidebar() {
@@ -42,7 +42,7 @@ export function Sidebar() {
             className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
           >
             <span className="nav-icon">{item.icon}</span>
-            <span className="bottom-nav-label">{item.label.split(' ')[0]}</span>
+            <span className="bottom-nav-label">{item.short}</span>
           </NavLink>
         ))}
       </nav>

@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api'
+import { useData } from '../DataContext'
 import { DateInput } from '../components/DateInput'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
+import { PageShell, EmptyRow } from '../components/PageShell'
 
 function InlineCell({ value, onSave, type = 'text' }) {
   const [editing, setEditing] = useState(false)
@@ -11,12 +13,12 @@ function InlineCell({ value, onSave, type = 'text' }) {
 
   const save = () => {
     setEditing(false)
-    const final = type === 'number' ? Number(val) || 0 : type === 'checkbox' ? val : val
+    const final = type === 'number' ? Number(val) || 0 : val
     if (final !== value) onSave(final)
   }
 
   if (type === 'checkbox') {
-    return <input type="checkbox" checked={!!value} onChange={e => onSave(e.target.checked)} className="task-checkbox" />
+    return <input type="checkbox" checked={!!value} onChange={e => onSave(e.target.checked)} className="task-checkbox" aria-label="Deposit paid" />
   }
 
   if (!editing) {
@@ -29,43 +31,56 @@ function InlineCell({ value, onSave, type = 'text' }) {
 
   return (
     <input className="inline-edit" type={type} value={val} autoFocus
-      onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => e.key === 'Enter' && save()} />
+      onChange={e => setVal(e.target.value)} onBlur={save}
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }} />
   )
 }
 
 export default function Vendors() {
-  const [vendors, setVendors] = useState([])
-  const [filterCategory, setFilterCategory] = useState('All')
-  const [filterStatus, setFilterStatus] = useState('All')
+  const { vendors, setVendors } = useData()
+  const [filterCategory, setFilterCategory] = useState(() => localStorage.getItem('vendors:category') || 'All')
+  const [filterStatus, setFilterStatus] = useState(() => localStorage.getItem('vendors:status') || 'All')
   const [toast, setToast] = useState('')
 
-  const load = useCallback(async () => {
-    const data = await api.get('/api/vendors')
-    setVendors(data)
-  }, [])
-
-  useEffect(() => { load() }, [load])
+  useEffect(() => { localStorage.setItem('vendors:category', filterCategory) }, [filterCategory])
+  useEffect(() => { localStorage.setItem('vendors:status', filterStatus) }, [filterStatus])
 
   const updateVendor = async (id, changes) => {
-    const prev = vendors
-    setVendors(vendors.map(v => v.id === id ? { ...v, ...changes } : v))
+    let snapshot
+    setVendors(prev => {
+      snapshot = prev
+      return prev.map(v => v.id === id ? { ...v, ...changes } : v)
+    })
     try {
       await api.put(`/api/vendors/${id}`, changes)
     } catch {
-      setVendors(prev)
+      setVendors(snapshot)
       setToast('Failed to save')
     }
   }
 
   const addVendor = async () => {
-    const v = await api.post('/api/vendors', { name: 'New Vendor' })
-    setVendors([...vendors, v])
+    try {
+      const v = await api.post('/api/vendors', { name: 'New Vendor' })
+      setVendors(prev => [...prev, v])
+    } catch {
+      setToast('Failed to add vendor')
+    }
   }
 
   const deleteVendor = async (id) => {
     if (!confirm('Delete this vendor?')) return
-    setVendors(vendors.filter(v => v.id !== id))
-    await api.del(`/api/vendors/${id}`)
+    let snapshot
+    setVendors(prev => {
+      snapshot = prev
+      return prev.filter(v => v.id !== id)
+    })
+    try {
+      await api.del(`/api/vendors/${id}`)
+    } catch {
+      setVendors(snapshot)
+      setToast('Failed to delete')
+    }
   }
 
   const categories = ['All', ...new Set(vendors.map(v => v.category).filter(Boolean))]
@@ -78,34 +93,35 @@ export default function Vendors() {
   })
 
   return (
-    <div>
+    <PageShell>
       <div className="page-header">
         <h2>Vendors</h2>
         <p>Manage vendor contacts, contracts, and payments</p>
       </div>
 
       <div className="filter-bar">
-        <label>Category</label>
-        <select className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+        <label htmlFor="vendors-category">Category</label>
+        <select id="vendors-category" className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <label>Contract</label>
-        <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <label htmlFor="vendors-status">Contract</label>
+        <select id="vendors-status" className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button className="btn btn-primary" onClick={addVendor}>+ Add Vendor</button>
+        <button type="button" className="btn btn-primary" onClick={addVendor}>+ Add Vendor</button>
       </div>
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Vendor Name</th><th>Category</th><th>Contact</th><th>Phone</th>
-              <th>Email</th><th>Contract</th><th>Deposit Paid</th><th>Deposit $</th>
-              <th>Balance</th><th>Due Date</th><th>Notes</th><th></th>
+              <th scope="col">Vendor Name</th><th scope="col">Category</th><th scope="col">Contact</th><th scope="col">Phone</th>
+              <th scope="col">Email</th><th scope="col">Contract</th><th scope="col">Deposit Paid</th><th scope="col">Deposit $</th>
+              <th scope="col">Balance</th><th scope="col">Due Date</th><th scope="col">Notes</th><th scope="col"></th>
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && <EmptyRow colSpan={12} message={vendors.length === 0 ? 'No vendors yet — add your first vendor above.' : 'No vendors match your filters.'} />}
             {filtered.map(v => (
               <tr key={v.id}>
                 <td><InlineCell value={v.name} onSave={val => updateVendor(v.id, { name: val })} /></td>
@@ -119,13 +135,13 @@ export default function Vendors() {
                 <td><InlineCell value={v.balanceDue} type="number" onSave={val => updateVendor(v.id, { balanceDue: val })} /></td>
                 <td><DateInput value={v.paymentDueDate} onChange={val => updateVendor(v.id, { paymentDueDate: val })} /></td>
                 <td><InlineCell value={v.notes} onSave={val => updateVendor(v.id, { notes: val })} /></td>
-                <td><button className="btn-icon" onClick={() => deleteVendor(v.id)}>🗑</button></td>
+                <td><button type="button" className="btn-icon" aria-label={`Delete ${v.name || 'vendor'}`} onClick={() => deleteVendor(v.id)}>🗑</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <Toast message={toast} onClose={() => setToast('')} />
-    </div>
+    </PageShell>
   )
 }

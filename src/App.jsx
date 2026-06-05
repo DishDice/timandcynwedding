@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
-import Dashboard from './pages/Dashboard'
-import Budget from './pages/Budget'
-import Vendors from './pages/Vendors'
-import Checklist from './pages/Checklist'
-import Guests from './pages/Guests'
-import Documents from './pages/Documents'
-import DayTimeline from './pages/DayTimeline'
+import { PersistentRoutes } from './components/PersistentRoutes'
+import { DataProvider } from './DataContext'
 
 function PinGate({ onSuccess }) {
   const [pin, setPin] = useState('')
@@ -34,8 +28,10 @@ function PinGate({ onSuccess }) {
       <form className="pin-card" onSubmit={handleSubmit}>
         <h1>Tim & Cyn</h1>
         <p>Enter your PIN to access the wedding hub</p>
-        {error && <p className="pin-error">{error}</p>}
+        {error && <p className="pin-error" id="pin-error" role="alert">{error}</p>}
+        <label htmlFor="pin-input" className="visually-hidden">PIN</label>
         <input
+          id="pin-input"
           className="pin-input"
           type="password"
           inputMode="numeric"
@@ -44,6 +40,8 @@ function PinGate({ onSuccess }) {
           onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
           placeholder="••••"
           autoFocus
+          aria-describedby={error ? 'pin-error' : undefined}
+          aria-label="4-digit PIN"
         />
         <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
           Enter
@@ -72,19 +70,13 @@ export default function App() {
   if (!authed) return <PinGate onSuccess={() => setAuthed(true)} />
 
   return (
-    <div className="app-layout">
-      <Sidebar />
-      <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/budget" element={<Budget />} />
-          <Route path="/vendors" element={<Vendors />} />
-          <Route path="/checklist" element={<Checklist />} />
-          <Route path="/guests" element={<Guests />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/timeline" element={<DayTimeline />} />
-        </Routes>
-      </main>
-    </div>
+    <DataProvider>
+      <div className="app-layout">
+        <Sidebar />
+        <main id="main-content" className="main-content">
+          <PersistentRoutes />
+        </main>
+      </div>
+    </DataProvider>
   )
 }

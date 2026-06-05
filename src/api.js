@@ -1,39 +1,65 @@
-const base = (method, path, body) =>
-  fetch(path, {
+async function request(method, path, body) {
+  const res = await fetch(path, {
     method,
     headers: {
       'Content-Type': 'application/json',
       'x-pin': sessionStorage.getItem('pin') ?? '',
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-  }).then(r => r.json());
+  })
+
+  let data = {}
+  try {
+    data = await res.json()
+  } catch {
+    data = {}
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`)
+  }
+
+  return data
+}
 
 export const api = {
-  get:  (path)        => base('GET',    path),
-  post: (path, body)  => base('POST',   path, body),
-  put:  (path, body)  => base('PUT',    path, body),
-  del:  (path)        => base('DELETE', path),
-};
+  get:  (path)        => request('GET',    path),
+  post: (path, body)  => request('POST',   path, body),
+  put:  (path, body)  => request('PUT',    path, body),
+  del:  (path)        => request('DELETE', path),
+}
+
+async function uploadRequest(path, options) {
+  const res = await fetch(path, options)
+  let data = {}
+  try {
+    data = await res.json()
+  } catch {
+    data = {}
+  }
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`)
+  }
+  return data
+}
 
 export async function uploadBannerPhoto(file) {
-  const form = new FormData();
-  form.append('photo', file);
-  const res = await fetch('/api/upload-banner-photo', {
+  const form = new FormData()
+  form.append('photo', file)
+  return uploadRequest('/api/upload-banner-photo', {
     method: 'POST',
     headers: { 'x-pin': sessionStorage.getItem('pin') ?? '' },
     body: form,
-  });
-  return res.json();
+  })
 }
 
 export async function deleteBannerPhoto(url) {
-  const res = await fetch('/api/banner-photo', {
+  return uploadRequest('/api/banner-photo', {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
       'x-pin': sessionStorage.getItem('pin') ?? '',
     },
     body: JSON.stringify({ url }),
-  });
-  return res.json();
+  })
 }
