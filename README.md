@@ -41,10 +41,18 @@ Express serves the built frontend from `dist/` and the API from `/api/*`.
    - `WEDDING_PIN` — your 4-digit PIN
    - `NODE_ENV=production`
    - Do **not** set `PORT` — Railway injects it automatically
-3. **Mount a Volume** at `/app/server/data` so guest lists, budget, and checklist data survive redeploys
+3. **Mount a Railway Volume** (required for data to survive redeploys):
+   - In Railway → your service → **Volumes** → Add Volume
+   - Mount path: `/data`
+   - Add variable: `DB_DATA_DIR=/data`
+   - Without this, every deploy wipes your guest list, checklist, and budget
 4. Railway reads `railway.toml` for build/start commands and health checks
 
-Health check endpoint: `GET /api/health`
+Health check endpoint: `GET /api/health` — check `db.persistent: true` to confirm the volume is active.
+
+### Data recovery
+
+If data was lost after a deploy, open the site in the **same browser** you used before — it will automatically restore guests and checklist from browser cache if it detects a fresh seed on the server. For permanent protection, set up the volume above.
 
 ## Project Structure
 

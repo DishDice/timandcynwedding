@@ -12,3 +12,4 @@ restartPolicyMaxRetries = 3
 [variables]
 NODE_VERSION = "20"
 NPM_CONFIG_PRODUCTION = "false"
+# Mount a Railway Volume to /data and set DB_DATA_DIR=/data so db.json survives redeploys

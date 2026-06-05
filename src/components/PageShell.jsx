@@ -1,7 +1,7 @@
 import { useData } from '../DataContext'
 
 export function PageShell({ children }) {
-  const { loaded, error, hasCache, refresh } = useData()
+  const { loaded, error, hasCache, refresh, restored } = useData()
 
   if (!loaded && !hasCache) {
     return (
@@ -14,6 +14,11 @@ export function PageShell({ children }) {
 
   return (
     <>
+      {restored && (
+        <div className="restore-banner" role="status">
+          Your edits were restored from this browser after a server reset. Mount a Railway volume to prevent this in future deploys.
+        </div>
+      )}
       {error && (
         <div className="error-banner" role="alert">
           <span>{error}</span>

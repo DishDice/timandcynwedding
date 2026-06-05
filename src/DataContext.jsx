@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { api } from './api'
 import { readCache, writeCache } from './cache'
+import { restoreFromCacheIfNeeded } from './syncGuard'
 
 const DataContext = createContext(null)
 
@@ -16,13 +17,26 @@ export function DataProvider({ children }) {
   const [timeline, setTimeline] = useState(() => readCache('cache:timeline', []))
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
+  const [restored, setRestored] = useState(false)
 
   const hasCache = budgetItems.length > 0 || checklist.length > 0 || guests.length > 0
+
+  const applyData = useCallback((cfg, budget, chk, gst, vnd, docs, tl) => {
+    setConfig(cfg.config)
+    setBannerPhotos(cfg.bannerPhotos || [])
+    setBudgetCategories(budget.categories)
+    setBudgetItems(budget.items)
+    setChecklist(chk)
+    setGuests(gst)
+    setVendors(vnd)
+    setDocuments(docs)
+    setTimeline(tl)
+  }, [])
 
   const loadAll = useCallback(async () => {
     try {
       setError(null)
-      const [cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
+      let [cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
         api.get('/api/config'),
         api.get('/api/budget'),
         api.get('/api/checklist'),
@@ -31,21 +45,28 @@ export function DataProvider({ children }) {
         api.get('/api/documents'),
         api.get('/api/timeline'),
       ])
-      setConfig(cfg.config)
-      setBannerPhotos(cfg.bannerPhotos || [])
-      setBudgetCategories(budget.categories)
-      setBudgetItems(budget.items)
-      setChecklist(chk)
-      setGuests(gst)
-      setVendors(vnd)
-      setDocuments(docs)
-      setTimeline(tl)
+
+      const didRestore = await restoreFromCacheIfNeeded(gst, chk)
+      if (didRestore) {
+        setRestored(true)
+        ;[cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
+          api.get('/api/config'),
+          api.get('/api/budget'),
+          api.get('/api/checklist'),
+          api.get('/api/guests'),
+          api.get('/api/vendors'),
+          api.get('/api/documents'),
+          api.get('/api/timeline'),
+        ])
+      }
+
+      applyData(cfg, budget, chk, gst, vnd, docs, tl)
     } catch (e) {
       setError(e.message || 'Failed to load data')
     } finally {
       setLoaded(true)
     }
-  }, [])
+  }, [applyData])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -60,6 +81,7 @@ export function DataProvider({ children }) {
     writeCache('cache:vendors', vendors)
     writeCache('cache:documents', documents)
     writeCache('cache:timeline', timeline)
+    writeCache('cache:meta', { savedAt: new Date().toISOString() })
   }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline])
 
   return (
@@ -75,6 +97,7 @@ export function DataProvider({ children }) {
       timeline, setTimeline,
       loaded,
       error,
+      restored,
       hasCache,
       refresh: loadAll,
     }}>

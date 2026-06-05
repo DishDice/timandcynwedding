@@ -29,8 +29,105 @@ const TIMELINE_SEED = [
   { time: '23:00', event: 'Sparkler send-off / end of night', location: 'Venue entrance', responsible: 'All', notes: '' },
 ];
 
+function seedBudget() {
+  let order = 0;
+  for (const cat of BUDGET_CATEGORIES) {
+    const categoryId = nextId();
+    db.set(`budget:category:${categoryId}`, {
+      id: categoryId,
+      name: cat.name,
+      order: order++,
+      collapsed: false,
+    });
+    let itemOrder = 0;
+    for (const item of cat.items) {
+      const itemId = nextId();
+      const actual = item.actual ?? 0;
+      const paid = item.paid ?? 0;
+      db.set(`budget:item:${itemId}`, {
+        id: itemId,
+        categoryId,
+        item: item.item,
+        vendor: item.vendor || '',
+        estimate: item.estimate ?? 0,
+        actual,
+        paid,
+        outstanding: actual - paid,
+        dueDate: item.dueDate || '',
+        status: item.status || 'Not Started',
+        notes: item.notes || '',
+        order: itemOrder++,
+      });
+    }
+  }
+  console.log('[seed] Seeded budget data');
+}
+
+function seedChecklist() {
+  let order = 0;
+  for (const task of CHECKLIST_TASKS) {
+    const id = nextId();
+    db.set(`checklist:${id}`, {
+      id,
+      section: task.section,
+      task: task.task,
+      assignedTo: task.assignedTo,
+      dueDate: '',
+      notes: task.notes || '',
+      done: false,
+      order: order++,
+    });
+  }
+  console.log('[seed] Seeded checklist data');
+}
+
+function seedGuests() {
+  let order = 0;
+  for (const guest of GUEST_SEED) {
+    const id = nextId();
+    db.set(`guest:${id}`, {
+      id,
+      name: guest.name,
+      group: guest.group,
+      rsvp: guest.rsvp,
+      dietary: guest.dietary,
+      tableNumber: guest.tableNumber,
+      notes: guest.notes,
+      order: order++,
+    });
+  }
+  console.log(`[seed] Seeded ${GUEST_SEED.length} guests`);
+}
+
+function seedTimeline() {
+  let order = 0;
+  for (const entry of TIMELINE_SEED) {
+    const id = nextId();
+    db.set(`timeline:${id}`, { id, ...entry, order: order++ });
+  }
+  console.log('[seed] Seeded timeline data');
+}
+
 export function runStartup() {
   console.log('[seed] Running startup checks...');
+
+  const meta = db.get('meta:system');
+  const hasExistingData =
+    db.list('guest:').length > 0 ||
+    db.list('checklist:').length > 0 ||
+    db.list('budget:').length > 0;
+
+  if (!meta && hasExistingData) {
+    db.set('meta:system', {
+      initializedAt: new Date().toISOString(),
+      version: 1,
+      adoptedExisting: true,
+    });
+    console.log('[seed] Adopted existing database — will not re-seed');
+    return;
+  }
+
+  const isFirstRun = !meta;
 
   if (!db.get('config:main')) {
     db.set('config:main', {
@@ -46,88 +143,27 @@ export function runStartup() {
     console.log('[seed] Created config:bannerPhotos');
   }
 
-  const budgetKeys = db.list('budget:');
-  if (budgetKeys.length === 0) {
-    let order = 0;
-    for (const cat of BUDGET_CATEGORIES) {
-      const categoryId = nextId();
-      db.set(`budget:category:${categoryId}`, {
-        id: categoryId,
-        name: cat.name,
-        order: order++,
-        collapsed: false,
-      });
-      let itemOrder = 0;
-      for (const item of cat.items) {
-        const itemId = nextId();
-        const actual = item.actual ?? 0;
-        const paid = item.paid ?? 0;
-        db.set(`budget:item:${itemId}`, {
-          id: itemId,
-          categoryId,
-          item: item.item,
-          vendor: item.vendor || '',
-          estimate: item.estimate ?? 0,
-          actual,
-          paid,
-          outstanding: actual - paid,
-          dueDate: item.dueDate || '',
-          status: item.status || 'Not Started',
-          notes: item.notes || '',
-          order: itemOrder++,
-        });
-      }
+  if (!isFirstRun) {
+    const empty = [];
+    if (db.list('budget:').length === 0) empty.push('budget');
+    if (db.list('checklist:').length === 0) empty.push('checklist');
+    if (db.list('guest:').length === 0) empty.push('guests');
+    if (db.list('timeline:').length === 0) empty.push('timeline');
+    if (empty.length) {
+      console.warn(`[seed] Data missing for: ${empty.join(', ')} — NOT re-seeding (meta:system exists). Restore from backup or browser cache.`);
     }
-    console.log('[seed] Seeded budget data');
+    console.log('[seed] Startup complete (existing database)');
+    return;
   }
 
-  const checklistKeys = db.list('checklist:');
-  if (checklistKeys.length === 0) {
-    let order = 0;
-    for (const task of CHECKLIST_TASKS) {
-      const id = nextId();
-      db.set(`checklist:${id}`, {
-        id,
-        section: task.section,
-        task: task.task,
-        assignedTo: task.assignedTo,
-        dueDate: '',
-        notes: task.notes || '',
-        done: false,
-        order: order++,
-      });
-    }
-    console.log('[seed] Seeded checklist data');
-  }
+  if (db.list('budget:').length === 0) seedBudget();
+  if (db.list('checklist:').length === 0) seedChecklist();
+  if (db.list('guest:').length === 0) seedGuests();
+  if (db.list('timeline:').length === 0) seedTimeline();
 
-  const guestKeys = db.list('guest:');
-  if (guestKeys.length === 0) {
-    let order = 0;
-    for (const guest of GUEST_SEED) {
-      const id = nextId();
-      db.set(`guest:${id}`, {
-        id,
-        name: guest.name,
-        group: guest.group,
-        rsvp: guest.rsvp,
-        dietary: guest.dietary,
-        tableNumber: guest.tableNumber,
-        notes: guest.notes,
-        order: order++,
-      });
-    }
-    console.log(`[seed] Seeded ${GUEST_SEED.length} guests`);
-  }
-
-  const timelineKeys = db.list('timeline:');
-  if (timelineKeys.length === 0) {
-    let order = 0;
-    for (const entry of TIMELINE_SEED) {
-      const id = nextId();
-      db.set(`timeline:${id}`, { id, ...entry, order: order++ });
-    }
-    console.log('[seed] Seeded timeline data');
-  }
-
-  console.log('[seed] Startup complete');
+  db.set('meta:system', {
+    initializedAt: new Date().toISOString(),
+    version: 1,
+  });
+  console.log('[seed] First-run seed complete — meta:system created');
 }

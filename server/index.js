@@ -12,6 +12,8 @@ import guestsRoutes from './routes/guests.js';
 import vendorsRoutes from './routes/vendors.js';
 import documentsRoutes from './routes/documents.js';
 import timelineRoutes from './routes/timeline.js';
+import syncRoutes from './routes/sync.js';
+import { getDbInfo } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -22,7 +24,15 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  const dbInfo = getDbInfo();
+  res.json({
+    ok: true,
+    db: {
+      records: dbInfo.records,
+      persistent: dbInfo.persistent,
+      corrupt: dbInfo.corrupt,
+    },
+  });
 });
 
 app.post('/api/auth/verify', verifyPin);
@@ -40,6 +50,7 @@ app.use('/api/guests', guestsRoutes);
 app.use('/api/vendors', vendorsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/timeline', timelineRoutes);
+app.use('/api/sync', syncRoutes);
 
 const bannerDir = path.join(__dirname, '../public/banner-photos');
 app.use('/banner-photos', express.static(bannerDir, {
@@ -57,6 +68,8 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
+  const dbInfo = getDbInfo();
   console.log(`Server running on port ${PORT}`);
+  console.log(`[db] Storage: ${dbInfo.path} (${dbInfo.persistent ? 'persistent volume' : 'local — will reset on redeploy without volume'})`);
   runStartup();
 });
