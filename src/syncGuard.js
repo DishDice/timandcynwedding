@@ -1,61 +1,83 @@
 import { readCache } from './cache'
 import { api } from './api'
 
-const GUEST_SEED_COUNT = 154
-const CHECKLIST_SEED_COUNT = 91
+export const GUEST_SEED_COUNT = 154
+export const CHECKLIST_SEED_COUNT = 91
 
-function guestFingerprint(guests) {
-  return JSON.stringify(guests.map(g => ({
-    id: g.id, name: g.name, group: g.group, rsvp: g.rsvp,
-    dietary: g.dietary, tableNumber: g.tableNumber, notes: g.notes,
-  })))
+export function serverLooksLikeFreshSeed(guests, checklist) {
+  const guestsFresh =
+    guests.length === GUEST_SEED_COUNT &&
+    guests.every(g => g.rsvp === 'pending' && !g.dietary && !g.tableNumber)
+
+  const checklistFresh =
+    checklist.length === CHECKLIST_SEED_COUNT &&
+    checklist.every(t => !t.done && !t.dueDate)
+
+  return guestsFresh && checklistFresh
 }
 
-function checklistFingerprint(tasks) {
-  return JSON.stringify(tasks.map(t => ({
-    id: t.id, task: t.task, done: t.done, dueDate: t.dueDate,
-    notes: t.notes, assignedTo: t.assignedTo,
-  })))
+export function cacheHasUserEdits() {
+  const guests = readCache('cache:guests', [])
+  const checklist = readCache('cache:checklist', [])
+  const budgetItems = readCache('cache:budgetItems', [])
+  const vendors = readCache('cache:vendors', [])
+  const documents = readCache('cache:documents', [])
+  const timeline = readCache('cache:timeline', [])
+
+  if (guests.some(g => g.rsvp !== 'pending' || g.dietary || g.tableNumber)) return true
+  if (checklist.some(t => t.done || t.dueDate)) return true
+  if (budgetItems.some(i =>
+    (Number(i.paid) || 0) > 0 ||
+    (Number(i.actual) || 0) !== (Number(i.estimate) || 0) ||
+    (i.status && i.status !== 'Not Started') ||
+    i.notes
+  )) return true
+  if (vendors.length > 0) return true
+  if (documents.length > 0) return true
+  if (timeline.length !== 17) return true
+  if (timeline.some(e => e.notes)) return true
+
+  const meta = readCache('cache:meta', null)
+  if (meta?.hadUserEdits) return true
+
+  return false
 }
 
-function looksLikeFreshGuestSeed(guests) {
-  if (guests.length !== GUEST_SEED_COUNT) return false
-  return guests.every(g => g.rsvp === 'pending' && !g.dietary && !g.tableNumber && !g.notes)
+export function buildRestorePayload(serverGuests, serverChecklist) {
+  if (!cacheHasUserEdits()) return null
+  if (!serverLooksLikeFreshSeed(serverGuests, serverChecklist)) return null
+
+  const payload = {}
+  const guests = readCache('cache:guests', [])
+  const checklist = readCache('cache:checklist', [])
+  const budgetCategories = readCache('cache:budgetCategories', [])
+  const budgetItems = readCache('cache:budgetItems', [])
+  const vendors = readCache('cache:vendors', [])
+  const documents = readCache('cache:documents', [])
+  const timeline = readCache('cache:timeline', [])
+  const config = readCache('cache:config', null)
+  const bannerPhotos = readCache('cache:bannerPhotos', [])
+
+  if (guests.length > 0) payload.guests = guests
+  if (checklist.length > 0) payload.checklist = checklist
+  if (budgetCategories.length > 0) payload.budgetCategories = budgetCategories
+  if (budgetItems.length > 0) payload.budgetItems = budgetItems
+  if (vendors.length > 0) payload.vendors = vendors
+  if (documents.length > 0) payload.documents = documents
+  if (timeline.length > 0) payload.timeline = timeline
+  if (config) payload.config = config
+  if (bannerPhotos.length > 0) payload.bannerPhotos = bannerPhotos
+
+  return Object.keys(payload).length > 0 ? payload : null
 }
 
-function looksLikeFreshChecklistSeed(tasks) {
-  if (tasks.length !== CHECKLIST_SEED_COUNT) return false
-  return tasks.every(t => !t.done && !t.dueDate && !t.notes)
-}
-
-export function detectStaleServer(serverGuests, serverChecklist) {
-  const cachedGuests = readCache('cache:guests', [])
-  const cachedChecklist = readCache('cache:checklist', [])
-
-  const restore = {}
-
-  if (
-    cachedGuests.length > 0 &&
-    guestFingerprint(cachedGuests) !== guestFingerprint(serverGuests) &&
-    looksLikeFreshGuestSeed(serverGuests)
-  ) {
-    restore.guests = cachedGuests
-  }
-
-  if (
-    cachedChecklist.length > 0 &&
-    checklistFingerprint(cachedChecklist) !== checklistFingerprint(serverChecklist) &&
-    looksLikeFreshChecklistSeed(serverChecklist)
-  ) {
-    restore.checklist = cachedChecklist
-  }
-
-  return restore
+export function wouldPoisonCache(serverGuests, serverChecklist) {
+  return cacheHasUserEdits() && serverLooksLikeFreshSeed(serverGuests, serverChecklist)
 }
 
 export async function restoreFromCacheIfNeeded(serverGuests, serverChecklist) {
-  const payload = detectStaleServer(serverGuests, serverChecklist)
-  if (!payload.guests && !payload.checklist) return null
+  const payload = buildRestorePayload(serverGuests, serverChecklist)
+  if (!payload) return null
 
   console.info('[sync] Server reset detected — restoring your data from browser cache...')
   await api.post('/api/sync/restore', payload)

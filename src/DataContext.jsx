@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { api } from './api'
 import { readCache, writeCache } from './cache'
-import { restoreFromCacheIfNeeded } from './syncGuard'
+import { restoreFromCacheIfNeeded, wouldPoisonCache, cacheHasUserEdits, buildRestorePayload } from './syncGuard'
 
 const DataContext = createContext(null)
 
@@ -18,6 +18,7 @@ export function DataProvider({ children }) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
   const [restored, setRestored] = useState(false)
+  const [restoreAvailable, setRestoreAvailable] = useState(false)
 
   const hasCache = budgetItems.length > 0 || checklist.length > 0 || guests.length > 0
 
@@ -46,18 +47,27 @@ export function DataProvider({ children }) {
         api.get('/api/timeline'),
       ])
 
-      const didRestore = await restoreFromCacheIfNeeded(gst, chk)
-      if (didRestore) {
-        setRestored(true)
-        ;[cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
-          api.get('/api/config'),
-          api.get('/api/budget'),
-          api.get('/api/checklist'),
-          api.get('/api/guests'),
-          api.get('/api/vendors'),
-          api.get('/api/documents'),
-          api.get('/api/timeline'),
-        ])
+      const canRestore = !!buildRestorePayload(gst, chk)
+      setRestoreAvailable(canRestore)
+
+      try {
+        const didRestore = await restoreFromCacheIfNeeded(gst, chk)
+        if (didRestore) {
+          setRestored(true)
+          setRestoreAvailable(false)
+          ;[cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
+            api.get('/api/config'),
+            api.get('/api/budget'),
+            api.get('/api/checklist'),
+            api.get('/api/guests'),
+            api.get('/api/vendors'),
+            api.get('/api/documents'),
+            api.get('/api/timeline'),
+          ])
+        }
+      } catch (restoreErr) {
+        console.error('[sync] Auto-restore failed:', restoreErr)
+        if (canRestore) setRestoreAvailable(true)
       }
 
       applyData(cfg, budget, chk, gst, vnd, docs, tl)
@@ -72,6 +82,10 @@ export function DataProvider({ children }) {
 
   useEffect(() => {
     if (!loaded) return
+    if (wouldPoisonCache(guests, checklist)) {
+      console.warn('[sync] Skipping cache write — server has fresh seed but browser still has your edits. Restore pending or failed.')
+      return
+    }
     writeCache('cache:config', config)
     writeCache('cache:bannerPhotos', bannerPhotos)
     writeCache('cache:budgetCategories', budgetCategories)
@@ -81,8 +95,24 @@ export function DataProvider({ children }) {
     writeCache('cache:vendors', vendors)
     writeCache('cache:documents', documents)
     writeCache('cache:timeline', timeline)
-    writeCache('cache:meta', { savedAt: new Date().toISOString() })
-  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline])
+    const prevMeta = readCache('cache:meta', {})
+    writeCache('cache:meta', {
+      savedAt: new Date().toISOString(),
+      hadUserEdits: prevMeta.hadUserEdits || restored || cacheHasUserEdits(),
+    })
+  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline, restored])
+
+  const restoreFromBrowser = useCallback(async () => {
+    const gst = await api.get('/api/guests')
+    const chk = await api.get('/api/checklist')
+    const payload = buildRestorePayload(gst, chk)
+    if (!payload) return false
+    await api.post('/api/sync/restore', payload)
+    setRestored(true)
+    setRestoreAvailable(false)
+    await loadAll()
+    return true
+  }, [loadAll])
 
   return (
     <DataContext.Provider value={{
@@ -98,6 +128,8 @@ export function DataProvider({ children }) {
       loaded,
       error,
       restored,
+      restoreAvailable,
+      restoreFromBrowser,
       hasCache,
       refresh: loadAll,
     }}>

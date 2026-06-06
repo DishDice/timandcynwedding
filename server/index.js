@@ -14,6 +14,7 @@ import documentsRoutes from './routes/documents.js';
 import timelineRoutes from './routes/timeline.js';
 import syncRoutes from './routes/sync.js';
 import { getDbInfo } from './db.js';
+import { getSeedDiagnostics } from './seedDetect.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -25,12 +26,21 @@ app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
   const dbInfo = getDbInfo();
+  const seed = getSeedDiagnostics();
   res.json({
     ok: true,
     db: {
       records: dbInfo.records,
       persistent: dbInfo.persistent,
       corrupt: dbInfo.corrupt,
+      storageWarning: dbInfo.persistent
+        ? null
+        : 'DB_DATA_DIR is not set — data resets on every Railway redeploy. Mount a volume at /data and set DB_DATA_DIR=/data.',
+      guestCount: seed.guestCount,
+      checklistCount: seed.checklistCount,
+      likelyFreshSeed: seed.likelyFreshSeed,
+      initializedAt: seed.meta?.initializedAt ?? null,
+      lastClientRestore: seed.meta?.lastClientRestore ?? null,
     },
   });
 });

@@ -143,6 +143,10 @@ export function runStartup() {
     console.log('[seed] Created config:bannerPhotos');
   }
 
+  if (!process.env.DB_DATA_DIR) {
+    console.warn('[seed] WARNING: DB_DATA_DIR is not set. Railway redeploys will wipe db.json and re-seed defaults.');
+  }
+
   if (!isFirstRun) {
     const empty = [];
     if (db.list('budget:').length === 0) empty.push('budget');
