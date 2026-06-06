@@ -1,17 +1,15 @@
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getDataPath, getDbPath, isPersistentStorage } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = process.env.DB_DATA_DIR || path.join(__dirname, 'data');
-export const DB_PATH = path.join(DATA_DIR, 'db.json');
+export const DB_PATH = getDbPath();
 
 let cache = null;
 let corrupt = false;
 
 function loadCache() {
   if (cache !== null) return cache;
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dataDir = getDataPath();
+  fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify({}));
     console.log(`[db] Created new database at ${DB_PATH}`);
@@ -23,7 +21,7 @@ function loadCache() {
     const backupPath = `${DB_PATH}.corrupt.${Date.now()}.bak`;
     try {
       fs.copyFileSync(DB_PATH, backupPath);
-      console.error(`[db] db.json corrupted — backed up to ${path.basename(backupPath)}. Original file preserved.`);
+      console.error(`[db] db.json corrupted — backed up to ${backupPath}. Original file preserved.`);
     } catch (backupErr) {
       console.error('[db] db.json corrupted and backup failed:', backupErr.message);
     }
@@ -59,9 +57,11 @@ export function getDbInfo() {
   loadCache();
   return {
     path: DB_PATH,
+    dataPath: getDataPath(),
+    fileExists: fs.existsSync(DB_PATH),
     records: Object.keys(cache).length,
     corrupt,
-    persistent: !!process.env.DB_DATA_DIR,
+    persistent: isPersistentStorage(),
   };
 }
 

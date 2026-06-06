@@ -44,11 +44,11 @@ Express serves the built frontend from `dist/` and the API from `/api/*`.
 3. **Mount a Railway Volume** (required for data to survive redeploys):
    - In Railway → your service → **Volumes** → Add Volume
    - Mount path: `/data`
-   - Add variable: `DB_DATA_DIR=/data`
+   - Add variable: `DATA_PATH=/data`
    - Without this, every deploy wipes your guest list, checklist, and budget
 4. Railway reads `railway.toml` for build/start commands and health checks
 
-Health check endpoint: `GET /api/health` — check `db.persistent: true` to confirm the volume is active.
+Health check endpoint: `GET /api/health` — check `db.persistent: true` and `db.dbPath: "/data/db.json"` to confirm the volume is active.
 
 ### Data recovery
 

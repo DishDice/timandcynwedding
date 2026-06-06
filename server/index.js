@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { verifyPin, requirePin } from './middleware/pinAuth.js';
@@ -15,6 +16,7 @@ import timelineRoutes from './routes/timeline.js';
 import syncRoutes from './routes/sync.js';
 import { getDbInfo } from './db.js';
 import { getSeedDiagnostics } from './seedDetect.js';
+import { getBannerPhotosPath } from './paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -30,12 +32,15 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     db: {
+      dataPath: dbInfo.dataPath,
+      dbPath: dbInfo.path,
+      fileExists: dbInfo.fileExists,
       records: dbInfo.records,
       persistent: dbInfo.persistent,
       corrupt: dbInfo.corrupt,
       storageWarning: dbInfo.persistent
         ? null
-        : 'DB_DATA_DIR is not set — data resets on every Railway redeploy. Mount a volume at /data and set DB_DATA_DIR=/data.',
+        : 'DATA_PATH is not set — data resets on every Railway redeploy. Mount a volume at /data and set DATA_PATH=/data.',
       guestCount: seed.guestCount,
       checklistCount: seed.checklistCount,
       likelyFreshSeed: seed.likelyFreshSeed,
@@ -62,7 +67,8 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/sync', syncRoutes);
 
-const bannerDir = path.join(__dirname, '../public/banner-photos');
+const bannerDir = getBannerPhotosPath();
+fs.mkdirSync(bannerDir, { recursive: true });
 app.use('/banner-photos', express.static(bannerDir, {
   maxAge: '365d',
 }));

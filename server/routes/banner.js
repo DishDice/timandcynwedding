@@ -2,11 +2,10 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { db } from '../db.js';
+import { getBannerPhotosPath } from '../paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, '../../public/banner-photos');
+const UPLOAD_DIR = getBannerPhotosPath();
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
