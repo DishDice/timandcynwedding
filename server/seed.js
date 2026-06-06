@@ -43,4 +43,5 @@ export function runStartup() {
   if (populated.length === 0) {
     console.log('[init] Existing data loaded — no empty collections to populate');
   }
+  return populated;
 }

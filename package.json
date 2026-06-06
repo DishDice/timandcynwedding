@@ -8,7 +8,8 @@
     "dev": "concurrently -n server,client -c blue,green \"node server/index.js\" \"vite\"",
     "build": "vite build",
     "start": "node server/index.js",
-    "seed": "node server/scripts/seed-database.js"
+    "seed": "node server/scripts/seed-database.js",
+    "test:persistence": "node server/scripts/test-persistence.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
