@@ -11,9 +11,9 @@ export function runStartup() {
   console.log('[init] Running startup checks...');
 
   if (!isPersistentStorage()) {
-    console.warn('[init] WARNING: DATA_PATH is not set. Data will use a local fallback directory and will NOT survive Railway redeploys.');
+    console.warn('[init] WARNING: DB_DATA_DIR is not set. Data will use a local fallback directory and will NOT survive Railway redeploys.');
   } else {
-    console.log(`[init] DATA_PATH=${process.env.DATA_PATH}`);
+    console.log(`[init] DB_DATA_DIR=${process.env.DB_DATA_DIR}`);
   }
 
   if (!db.get('config:main')) {

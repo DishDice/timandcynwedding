@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { getDataPath, getDbPath, isPersistentStorage } from './paths.js';
+import { getDataDir, getDbPath, isPersistentStorage } from './paths.js';
 
 export const DB_PATH = getDbPath();
 
@@ -8,7 +8,7 @@ let corrupt = false;
 
 function loadCache() {
   if (cache !== null) return cache;
-  const dataDir = getDataPath();
+  const dataDir = getDataDir();
   fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify({}));
@@ -57,7 +57,7 @@ export function getDbInfo() {
   loadCache();
   return {
     path: DB_PATH,
-    dataPath: getDataPath(),
+    dataDir: getDataDir(),
     fileExists: fs.existsSync(DB_PATH),
     records: Object.keys(cache).length,
     corrupt,

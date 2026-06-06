@@ -35,7 +35,7 @@ export function PageShell({ children }) {
       )}
       {restored && (
         <div className="restore-banner" role="status">
-          Your edits were restored from this browser. Ensure Railway has a volume at <code>/data</code> with <code>DATA_PATH=/data</code> so data survives future deploys.
+          Your edits were restored from this browser. Ensure Railway has a volume at <code>/data</code> with <code>DB_DATA_DIR=/data</code> so data survives future deploys.
         </div>
       )}
       {error && (

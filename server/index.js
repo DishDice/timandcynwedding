@@ -32,7 +32,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     db: {
-      dataPath: dbInfo.dataPath,
+      dataDir: dbInfo.dataDir,
       dbPath: dbInfo.path,
       fileExists: dbInfo.fileExists,
       records: dbInfo.records,
@@ -40,7 +40,7 @@ app.get('/api/health', (_req, res) => {
       corrupt: dbInfo.corrupt,
       storageWarning: dbInfo.persistent
         ? null
-        : 'DATA_PATH is not set — data resets on every Railway redeploy. Mount a volume at /data and set DATA_PATH=/data.',
+        : 'DB_DATA_DIR is not set — data resets on every Railway redeploy. Mount a volume at /data and set DB_DATA_DIR=/data.',
       guestCount: seed.guestCount,
       checklistCount: seed.checklistCount,
       likelyFreshSeed: seed.likelyFreshSeed,
