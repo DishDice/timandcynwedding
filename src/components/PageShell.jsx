@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useData } from '../DataContext'
 
 export function PageShell({ children }) {
-  const { loaded, error, hasCache, refresh, restored, restoreAvailable, restoreFromBrowser } = useData()
+  const { loaded, error, hasCache, refresh, restoreAvailable, restoreFromBrowser } = useData()
   const [restoring, setRestoring] = useState(false)
 
   const handleRestore = async () => {
@@ -31,11 +31,6 @@ export function PageShell({ children }) {
           <button type="button" className="btn btn-sm btn-primary" disabled={restoring} onClick={handleRestore}>
             {restoring ? 'Restoring…' : 'Restore my data'}
           </button>
-        </div>
-      )}
-      {restored && (
-        <div className="restore-banner" role="status">
-          Your edits were restored from this browser. Ensure Railway has a volume at <code>/data</code> with <code>DB_DATA_DIR=/data</code> so data survives future deploys.
         </div>
       )}
       {error && (

@@ -4,6 +4,20 @@ import { api } from './api'
 export const GUEST_SEED_COUNT = 154
 export const CHECKLIST_SEED_COUNT = 91
 
+function guestFingerprint(guests) {
+  return JSON.stringify(guests.map(g => ({
+    id: g.id, name: g.name, group: g.group, rsvp: g.rsvp,
+    dietary: g.dietary, tableNumber: g.tableNumber, notes: g.notes,
+  })))
+}
+
+function checklistFingerprint(tasks) {
+  return JSON.stringify(tasks.map(t => ({
+    id: t.id, task: t.task, done: t.done, dueDate: t.dueDate,
+    notes: t.notes, assignedTo: t.assignedTo,
+  })))
+}
+
 export function serverLooksLikeFreshSeed(guests, checklist) {
   const guestsFresh =
     guests.length === GUEST_SEED_COUNT &&
@@ -47,9 +61,17 @@ export function buildRestorePayload(serverGuests, serverChecklist) {
   if (!cacheHasUserEdits()) return null
   if (!serverLooksLikeFreshSeed(serverGuests, serverChecklist)) return null
 
-  const payload = {}
   const guests = readCache('cache:guests', [])
   const checklist = readCache('cache:checklist', [])
+
+  if (
+    guestFingerprint(guests) === guestFingerprint(serverGuests) &&
+    checklistFingerprint(checklist) === checklistFingerprint(serverChecklist)
+  ) {
+    return null
+  }
+
+  const payload = {}
   const budgetCategories = readCache('cache:budgetCategories', [])
   const budgetItems = readCache('cache:budgetItems', [])
   const vendors = readCache('cache:vendors', [])

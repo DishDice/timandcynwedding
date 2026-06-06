@@ -17,7 +17,6 @@ export function DataProvider({ children }) {
   const [timeline, setTimeline] = useState(() => readCache('cache:timeline', []))
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
-  const [restored, setRestored] = useState(false)
   const [restoreAvailable, setRestoreAvailable] = useState(false)
 
   const hasCache = budgetItems.length > 0 || checklist.length > 0 || guests.length > 0
@@ -53,7 +52,6 @@ export function DataProvider({ children }) {
       try {
         const didRestore = await restoreFromCacheIfNeeded(gst, chk)
         if (didRestore) {
-          setRestored(true)
           setRestoreAvailable(false)
           ;[cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
             api.get('/api/config'),
@@ -98,9 +96,9 @@ export function DataProvider({ children }) {
     const prevMeta = readCache('cache:meta', {})
     writeCache('cache:meta', {
       savedAt: new Date().toISOString(),
-      hadUserEdits: prevMeta.hadUserEdits || restored || cacheHasUserEdits(),
+      hadUserEdits: prevMeta.hadUserEdits || cacheHasUserEdits(),
     })
-  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline, restored])
+  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline])
 
   const restoreFromBrowser = useCallback(async () => {
     const gst = await api.get('/api/guests')
@@ -108,7 +106,6 @@ export function DataProvider({ children }) {
     const payload = buildRestorePayload(gst, chk)
     if (!payload) return false
     await api.post('/api/sync/restore', payload)
-    setRestored(true)
     setRestoreAvailable(false)
     await loadAll()
     return true
@@ -127,7 +124,6 @@ export function DataProvider({ children }) {
       timeline, setTimeline,
       loaded,
       error,
-      restored,
       restoreAvailable,
       restoreFromBrowser,
       hasCache,
