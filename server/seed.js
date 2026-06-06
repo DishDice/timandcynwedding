@@ -1,5 +1,6 @@
 import { db } from './db.js';
 import { isPersistentStorage } from './paths.js';
+import { populateDefaultsIfEmpty } from './seedData.js';
 
 /**
  * Startup initialisation — file I/O rules:
@@ -35,8 +36,11 @@ export function runStartup() {
       initializedAt: new Date().toISOString(),
       version: 1,
     });
-    console.log('[init] Marked database as initialised — no seed data written');
-  } else {
-    console.log('[init] Existing database loaded — skipping all seeding');
+    console.log('[init] Marked database as initialised');
+  }
+
+  const populated = populateDefaultsIfEmpty();
+  if (populated.length === 0) {
+    console.log('[init] Existing data loaded — no empty collections to populate');
   }
 }

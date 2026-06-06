@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db.js';
+import { populateDefaultsIfEmpty } from '../seedData.js';
 
 const router = Router();
 
@@ -64,6 +65,11 @@ router.post('/restore', (req, res) => {
 
   console.log(`[sync] Client restore: ${restored.join(', ') || 'nothing'}`);
   res.json({ ok: true, restored });
+});
+
+router.post('/populate-defaults', (_req, res) => {
+  const populated = populateDefaultsIfEmpty();
+  res.json({ ok: true, populated });
 });
 
 router.get('/backup', (_req, res) => {
