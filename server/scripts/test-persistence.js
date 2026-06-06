@@ -73,6 +73,9 @@ try {
   const diskAfterFirst = readDbFromDisk();
   assert('db.json exists on disk', diskAfterFirst !== null);
   assert('Marker on disk before redeploy', diskAfterFirst?.[`guest:${MARKER_GUEST_ID}`]?.name === MARKER_NAME);
+  assert('Banner URL saved', afterFirst.bannerUrlSaved === true);
+  assert('Banner file on disk before redeploy', afterFirst.bannerFileExists === true);
+  assert('Banner dir under DB_DATA_DIR', afterFirst.bannerDir === path.join(testDir, 'banner-photos'));
 
   const guestCountDisk1 = countKeys(diskAfterFirst, 'guest:');
   const checklistCountDisk1 = countKeys(diskAfterFirst, 'checklist:');
@@ -88,6 +91,8 @@ try {
     `before=${checklistCountDisk1} after=${afterRedeploy.checklistCount}`);
   assert('Startup did not re-populate', afterRedeploy.populated.length === 0,
     `populated=${JSON.stringify(afterRedeploy.populated)}`);
+  assert('Banner URL survived redeploy', afterRedeploy.bannerUrlSaved === true);
+  assert('Banner file survived redeploy', afterRedeploy.bannerFileExists === true);
 
   // --- Phase 3: Direct disk read (bypasses any in-memory cache) ---
   console.log('');

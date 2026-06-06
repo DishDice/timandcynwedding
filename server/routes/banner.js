@@ -3,14 +3,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { db } from '../db.js';
-import { getBannerPhotosPath } from '../paths.js';
-
-const UPLOAD_DIR = getBannerPhotosPath();
+import { ensureBannerStorage, getBannerFilePath } from '../bannerStorage.js';
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    cb(null, UPLOAD_DIR);
+    cb(null, ensureBannerStorage());
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || '.jpg';
@@ -34,6 +31,7 @@ router.post('/upload-banner-photo', upload.single('photo'), (req, res) => {
   const url = `/banner-photos/${req.file.filename}`;
   photos.push(url);
   db.set('config:bannerPhotos', photos);
+  console.log(`[banner] Saved ${req.file.filename} → ${req.file.path}`);
   res.json({ url, photos });
 });
 
@@ -42,7 +40,7 @@ router.delete('/banner-photo', (req, res) => {
   const photos = (db.get('config:bannerPhotos') || []).filter(p => p !== url);
   db.set('config:bannerPhotos', photos);
   const filename = path.basename(url);
-  const filepath = path.join(UPLOAD_DIR, filename);
+  const filepath = getBannerFilePath(filename);
   if (fs.existsSync(filepath)) {
     fs.unlinkSync(filepath);
   }

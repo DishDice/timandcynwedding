@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { isPersistentStorage } from './paths.js';
 import { populateDefaultsIfEmpty } from './seedData.js';
+import { reconcileBannerPhotos } from './bannerStorage.js';
 
 /**
  * Startup initialisation — file I/O rules:
@@ -43,5 +44,9 @@ export function runStartup() {
   if (populated.length === 0) {
     console.log('[init] Existing data loaded — no empty collections to populate');
   }
+
+  const banner = reconcileBannerPhotos();
+  console.log(`[init] Banner storage: ${banner.dir} (${banner.filesOnDisk} file(s), ${banner.urlsInDb} in db)`);
+
   return populated;
 }

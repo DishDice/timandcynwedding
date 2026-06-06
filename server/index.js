@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { verifyPin, requirePin } from './middleware/pinAuth.js';
@@ -16,7 +15,7 @@ import timelineRoutes from './routes/timeline.js';
 import syncRoutes from './routes/sync.js';
 import { getDbInfo } from './db.js';
 import { getSeedDiagnostics } from './seedDetect.js';
-import { getBannerPhotosPath } from './paths.js';
+import { ensureBannerStorage, getBannerDiagnostics } from './bannerStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -29,6 +28,7 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => {
   const dbInfo = getDbInfo();
   const seed = getSeedDiagnostics();
+  const banner = getBannerDiagnostics();
   res.json({
     ok: true,
     db: {
@@ -46,6 +46,9 @@ app.get('/api/health', (_req, res) => {
       likelyFreshSeed: seed.likelyFreshSeed,
       initializedAt: seed.meta?.initializedAt ?? null,
       lastClientRestore: seed.meta?.lastClientRestore ?? null,
+      bannerDir: banner.bannerDir,
+      bannerFilesOnDisk: banner.filesOnDisk,
+      bannerUrlsInDb: banner.urlsInDb,
     },
   });
 });
@@ -67,8 +70,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/sync', syncRoutes);
 
-const bannerDir = getBannerPhotosPath();
-fs.mkdirSync(bannerDir, { recursive: true });
+const bannerDir = ensureBannerStorage();
 app.use('/banner-photos', express.static(bannerDir, {
   maxAge: '365d',
 }));
