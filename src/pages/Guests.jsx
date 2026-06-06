@@ -4,6 +4,7 @@ import { useData } from '../DataContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
 import { PageShell, EmptyRow } from '../components/PageShell'
+import { TableScrollHint } from '../components/TableScrollHint'
 
 const DEFAULT_GROUPS = ['Tim Family', 'Tim Friends', 'Cyn Family', 'Cyn Friends']
 
@@ -18,7 +19,7 @@ function InlineCell({ value, onSave }) {
   }
 
   if (!editing) {
-    return <span onClick={() => setEditing(true)} style={{ cursor: 'pointer', display: 'block' }}>{value || '—'}</span>
+    return <span className="cell-text" onClick={() => setEditing(true)} style={{ cursor: 'pointer' }}>{value || '—'}</span>
   }
 
   return (
@@ -127,8 +128,9 @@ export default function Guests() {
         <button type="button" className="btn" onClick={exportCsv}>Export CSV</button>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <TableScrollHint />
+      <div className="table-wrap table-wrap--scroll">
+        <table className="data-table guests-table">
           <thead>
             <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
           </thead>

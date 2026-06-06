@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useData } from '../DataContext'
 import { Toast } from '../components/Toast'
 import { PageShell, EmptyRow } from '../components/PageShell'
+import { TableScrollHint } from '../components/TableScrollHint'
 
 const CATEGORIES = ['Contract', 'Invoice', 'Inspiration', 'Legal', 'Other']
 
@@ -84,8 +85,9 @@ export default function Documents() {
         <button type="button" className="btn btn-primary" onClick={addDoc}>+ Add Document</button>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <TableScrollHint />
+      <div className="table-wrap table-wrap--scroll">
+        <table className="data-table">
           <thead>
             <tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Vendor</th><th scope="col">URL</th><th scope="col">Date Added</th><th scope="col">Notes</th><th scope="col"></th></tr>
           </thead>

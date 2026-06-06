@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useData } from '../DataContext'
 import { Toast } from '../components/Toast'
 import { PageShell } from '../components/PageShell'
+import { TableScrollHint } from '../components/TableScrollHint'
 
 function InlineCell({ value, onSave }) {
   const [editing, setEditing] = useState(false)
@@ -102,8 +103,9 @@ export default function DayTimeline() {
         <button type="button" className="btn btn-primary" onClick={addEntry}>+ Add Entry</button>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <TableScrollHint />
+      <div className="table-wrap table-wrap--scroll">
+        <table className="data-table">
           <thead>
             <tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Location</th><th scope="col">Responsible</th><th scope="col">Notes</th><th scope="col">Actions</th></tr>
           </thead>

@@ -5,6 +5,7 @@ import { DateInput } from '../components/DateInput'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
 import { PageShell } from '../components/PageShell'
+import { TableScrollHint } from '../components/TableScrollHint'
 
 function rowClass(item) {
   if (!item.dueDate) return ''
@@ -31,7 +32,7 @@ function InlineCell({ value, onSave, type = 'text', className = '' }) {
 
   if (!editing) {
     return (
-      <span className={className} onClick={() => setEditing(true)} style={{ cursor: 'pointer', display: 'block', minHeight: 20 }}>
+      <span className={`cell-text ${className}`.trim()} onClick={() => setEditing(true)} style={{ cursor: 'pointer', minHeight: 20 }}>
         {type === 'number' ? `$${Number(value || 0).toLocaleString()}` : (value || '—')}
       </span>
     )
@@ -136,8 +137,9 @@ export default function Budget() {
         <div className="summary-item"><strong>${totalOutstanding.toLocaleString()}</strong>Outstanding</div>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <TableScrollHint />
+      <div className="table-wrap table-wrap--scroll">
+        <table className="data-table budget-table">
           <thead>
             <tr>
               <th>#</th><th>Item</th><th>Vendor</th><th>Estimate</th>

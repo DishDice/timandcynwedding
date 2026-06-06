@@ -5,6 +5,7 @@ import { DateInput } from '../components/DateInput'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
 import { PageShell, EmptyRow } from '../components/PageShell'
+import { TableScrollHint } from '../components/TableScrollHint'
 
 function InlineCell({ value, onSave, type = 'text' }) {
   const [editing, setEditing] = useState(false)
@@ -111,8 +112,9 @@ export default function Vendors() {
         <button type="button" className="btn btn-primary" onClick={addVendor}>+ Add Vendor</button>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <TableScrollHint />
+      <div className="table-wrap table-wrap--scroll">
+        <table className="data-table vendors-table">
           <thead>
             <tr>
               <th scope="col">Vendor Name</th><th scope="col">Category</th><th scope="col">Contact</th><th scope="col">Phone</th>
