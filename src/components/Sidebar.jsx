@@ -7,6 +7,7 @@ const NAV = [
   { to: '/checklist', label: 'Checklist', short: 'Tasks', icon: '✓' },
   { to: '/guests', label: 'Guests', short: 'Guests', icon: '◎' },
   { to: '/documents', label: 'Documents', short: 'Docs', icon: '▤' },
+  { to: '/notes', label: 'Notes', short: 'Notes', icon: '✎' },
   { to: '/timeline', label: 'Day Timeline', short: 'Day', icon: '⏱' },
 ]
 

@@ -7,6 +7,11 @@ import { PageShell, EmptyRow } from '../components/PageShell'
 import { TableScrollHint } from '../components/TableScrollHint'
 
 const DEFAULT_GROUPS = ['Tim Family', 'Tim Friends', 'Cyn Family', 'Cyn Friends']
+const INVITE_TYPES = [
+  { value: '', label: '—' },
+  { value: 'digital', label: 'Digital' },
+  { value: 'physical', label: 'Physical' },
+]
 
 function InlineCell({ value, onSave }) {
   const [editing, setEditing] = useState(false)
@@ -77,8 +82,8 @@ export default function Guests() {
   }
 
   const exportCsv = () => {
-    const headers = ['Name', 'Group', 'RSVP', 'Dietary', 'Table', 'Notes']
-    const rows = filtered.map(g => [g.name, g.group, g.rsvp, g.dietary, g.tableNumber, g.notes])
+    const headers = ['Name', 'Group', 'RSVP', 'Invite', 'Dietary', 'Table', 'Notes']
+    const rows = filtered.map(g => [g.name, g.group, g.rsvp, g.inviteType, g.dietary, g.tableNumber, g.notes])
     const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -132,10 +137,10 @@ export default function Guests() {
       <div className="table-wrap table-wrap--scroll">
         <table className="data-table guests-table">
           <thead>
-            <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
+            <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Invite</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <EmptyRow colSpan={7} />}
+            {filtered.length === 0 && <EmptyRow colSpan={8} />}
             {filtered.map(g => (
               <tr key={g.id}>
                 <td><InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} /></td>
@@ -145,6 +150,17 @@ export default function Guests() {
                   </select>
                 </td>
                 <td><StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} /></td>
+                <td>
+                  <select
+                    className="filter-select"
+                    value={g.inviteType || ''}
+                    onChange={e => updateGuest(g.id, { inviteType: e.target.value })}
+                    style={{ fontSize: '0.8rem' }}
+                    aria-label={`Invite type for ${g.name}`}
+                  >
+                    {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
+                  </select>
+                </td>
                 <td><InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} /></td>
                 <td><InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} /></td>
                 <td><InlineCell value={g.notes} onSave={v => updateGuest(g.id, { notes: v })} /></td>

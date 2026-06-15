@@ -7,7 +7,7 @@ export const CHECKLIST_SEED_COUNT = 91
 function guestFingerprint(guests) {
   return JSON.stringify(guests.map(g => ({
     id: g.id, name: g.name, group: g.group, rsvp: g.rsvp,
-    dietary: g.dietary, tableNumber: g.tableNumber, notes: g.notes,
+    dietary: g.dietary, tableNumber: g.tableNumber, notes: g.notes, inviteType: g.inviteType,
   })))
 }
 

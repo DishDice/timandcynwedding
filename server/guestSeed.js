@@ -60,6 +60,7 @@ function makeGuests(names, group, notesMap = {}) {
     dietary: '',
     tableNumber: '',
     notes: notesMap[name] || '',
+    inviteType: '',
   }));
 }
 

@@ -22,6 +22,7 @@ router.post('/', (req, res) => {
     dietary: '',
     tableNumber: '',
     notes: '',
+    inviteType: '',
     order,
   };
   db.set(`guest:${id}`, guest);

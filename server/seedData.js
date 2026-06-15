@@ -91,6 +91,7 @@ function seedGuests() {
       dietary: guest.dietary,
       tableNumber: guest.tableNumber,
       notes: guest.notes,
+      inviteType: guest.inviteType || '',
       order: order++,
     });
   }

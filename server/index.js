@@ -11,6 +11,7 @@ import checklistRoutes from './routes/checklist.js';
 import guestsRoutes from './routes/guests.js';
 import vendorsRoutes from './routes/vendors.js';
 import documentsRoutes from './routes/documents.js';
+import notesRoutes from './routes/notes.js';
 import timelineRoutes from './routes/timeline.js';
 import syncRoutes from './routes/sync.js';
 import { getDbInfo } from './db.js';
@@ -67,6 +68,7 @@ app.use('/api/checklist', checklistRoutes);
 app.use('/api/guests', guestsRoutes);
 app.use('/api/vendors', vendorsRoutes);
 app.use('/api/documents', documentsRoutes);
+app.use('/api/notes', notesRoutes);
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/sync', syncRoutes);
 

@@ -3,6 +3,11 @@ import { getDataDir, getDbPath, isPersistentStorage } from './paths.js';
 
 export const DB_PATH = getDbPath();
 
+/**
+ * Notes — stored as `note:${id}` in db.json
+ * { id, title, content, createdAt, updatedAt }
+ */
+
 let cache = null;
 let corrupt = false;
 
