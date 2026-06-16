@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 import { useData } from '../DataContext'
+import { useCompactLayout } from '../hooks/useCompactLayout'
 import { StatusBadge } from '../components/StatusBadge'
 import { Toast } from '../components/Toast'
 import { PageShell, EmptyRow } from '../components/PageShell'
@@ -14,9 +15,10 @@ const INVITE_TYPES = [
 ]
 
 function InlineCell({ value, onSave }) {
+  const safeValue = value ?? ''
   const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(value)
-  useEffect(() => { setVal(value) }, [value])
+  const [val, setVal] = useState(safeValue)
+  useEffect(() => { setVal(value ?? '') }, [value])
 
   const save = () => {
     setEditing(false)
@@ -24,17 +26,97 @@ function InlineCell({ value, onSave }) {
   }
 
   if (!editing) {
-    return <span className="cell-text" onClick={() => setEditing(true)} style={{ cursor: 'pointer' }}>{value || '—'}</span>
+    return (
+      <span
+        className="cell-text editable-cell"
+        onClick={() => setEditing(true)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(true) } }}
+        role="button"
+        tabIndex={0}
+      >
+        {safeValue !== '' ? safeValue : '—'}
+      </span>
+    )
   }
 
   return (
     <input className="inline-edit" value={val} autoFocus
       onChange={e => setVal(e.target.value)} onBlur={save}
-      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }} />
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(safeValue); setEditing(false) } }} />
+  )
+}
+
+function GuestCardList({ guests, assignableGroups, onUpdate, onDelete }) {
+  if (guests.length === 0) {
+    return <p className="card-list-empty">No guests match your filters.</p>
+  }
+  return (
+    <div className="card-list">
+      {guests.map(g => (
+        <div key={g.id} className="data-card">
+          <div className="data-card-header">
+            <div className="data-card-title">
+              <InlineCell value={g.name} onSave={v => onUpdate(g.id, { name: v })} />
+            </div>
+            <div className="data-card-actions">
+              <StatusBadge value={g.rsvp} type="rsvp" onChange={v => onUpdate(g.id, { rsvp: v })} />
+              <button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => onDelete(g.id)}>🗑</button>
+            </div>
+          </div>
+          <div className="data-card-grid">
+            <div className="data-card-field">
+              <span className="data-card-label">Group</span>
+              <div className="data-card-value">
+                <select
+                  className="filter-select"
+                  value={g.group || ''}
+                  onChange={e => onUpdate(g.id, { group: e.target.value })}
+                  aria-label={`Group for ${g.name}`}
+                >
+                  {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="data-card-field">
+              <span className="data-card-label">Invite</span>
+              <div className="data-card-value">
+                <select
+                  className="filter-select"
+                  value={g.inviteType || ''}
+                  onChange={e => onUpdate(g.id, { inviteType: e.target.value })}
+                  aria-label={`Invite type for ${g.name}`}
+                >
+                  {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="data-card-field">
+              <span className="data-card-label">Table</span>
+              <div className="data-card-value">
+                <InlineCell value={g.tableNumber} onSave={v => onUpdate(g.id, { tableNumber: v })} />
+              </div>
+            </div>
+            <div className="data-card-field">
+              <span className="data-card-label">Dietary</span>
+              <div className="data-card-value">
+                <InlineCell value={g.dietary} onSave={v => onUpdate(g.id, { dietary: v })} />
+              </div>
+            </div>
+            <div className="data-card-field data-card-field--full">
+              <span className="data-card-label">Notes</span>
+              <div className="data-card-value">
+                <InlineCell value={g.notes} onSave={v => onUpdate(g.id, { notes: v })} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
 export default function Guests() {
+  const compact = useCompactLayout(900)
   const { guests, setGuests } = useData()
   const [filterGroup, setFilterGroup] = useState(() => localStorage.getItem('guests:group') || 'All')
   const [filterRsvp, setFilterRsvp] = useState(() => localStorage.getItem('guests:rsvp') || 'All')
@@ -133,43 +215,54 @@ export default function Guests() {
         <button type="button" className="btn" onClick={exportCsv}>Export CSV</button>
       </div>
 
-      <TableScrollHint />
-      <div className="table-wrap table-wrap--scroll">
-        <table className="data-table guests-table">
-          <thead>
-            <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Invite</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && <EmptyRow colSpan={8} />}
-            {filtered.map(g => (
-              <tr key={g.id}>
-                <td><InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} /></td>
-                <td>
-                  <select className="filter-select" value={g.group} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }} aria-label={`Group for ${g.name}`}>
-                    {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
-                  </select>
-                </td>
-                <td><StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} /></td>
-                <td>
-                  <select
-                    className="filter-select"
-                    value={g.inviteType || ''}
-                    onChange={e => updateGuest(g.id, { inviteType: e.target.value })}
-                    style={{ fontSize: '0.8rem' }}
-                    aria-label={`Invite type for ${g.name}`}
-                  >
-                    {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
-                  </select>
-                </td>
-                <td><InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} /></td>
-                <td><InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} /></td>
-                <td><InlineCell value={g.notes} onSave={v => updateGuest(g.id, { notes: v })} /></td>
-                <td><button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => deleteGuest(g.id)}>🗑</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {compact ? (
+        <GuestCardList
+          guests={filtered}
+          assignableGroups={assignableGroups}
+          onUpdate={updateGuest}
+          onDelete={deleteGuest}
+        />
+      ) : (
+        <>
+          <TableScrollHint />
+          <div className="table-wrap table-wrap--scroll">
+            <table className="data-table guests-table">
+              <thead>
+                <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Invite</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && <EmptyRow colSpan={8} />}
+                {filtered.map(g => (
+                  <tr key={g.id}>
+                    <td><InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} /></td>
+                    <td>
+                      <select className="filter-select" value={g.group || ''} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }} aria-label={`Group for ${g.name}`}>
+                        {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
+                      </select>
+                    </td>
+                    <td><StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} /></td>
+                    <td>
+                      <select
+                        className="filter-select"
+                        value={g.inviteType || ''}
+                        onChange={e => updateGuest(g.id, { inviteType: e.target.value })}
+                        style={{ fontSize: '0.8rem' }}
+                        aria-label={`Invite type for ${g.name}`}
+                      >
+                        {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </td>
+                    <td><InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} /></td>
+                    <td><InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} /></td>
+                    <td><InlineCell value={g.notes} onSave={v => updateGuest(g.id, { notes: v })} /></td>
+                    <td><button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => deleteGuest(g.id)}>🗑</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       <Toast message={toast} onClose={() => setToast('')} />
     </PageShell>
   )

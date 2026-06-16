@@ -94,6 +94,7 @@ export default function Dashboard() {
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     try {
       const res = await uploadBannerPhoto(file)
@@ -151,7 +152,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+      <div className="dashboard-actions">
         <button type="button" className="btn btn-sm" onClick={openDrawer}>Edit details</button>
       </div>
 

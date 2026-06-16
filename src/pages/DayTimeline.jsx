@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 import { useData } from '../DataContext'
+import { useCompactLayout } from '../hooks/useCompactLayout'
 import { Toast } from '../components/Toast'
 import { PageShell } from '../components/PageShell'
 import { TableScrollHint } from '../components/TableScrollHint'
 
-function InlineCell({ value, onSave }) {
+function InlineCell({ value, onSave, placeholder = '—' }) {
+  const safeValue = value ?? ''
   const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(value)
-  useEffect(() => { setVal(value) }, [value])
+  const [val, setVal] = useState(safeValue)
+  useEffect(() => { setVal(value ?? '') }, [value])
 
   const save = () => {
     setEditing(false)
@@ -16,13 +18,23 @@ function InlineCell({ value, onSave }) {
   }
 
   if (!editing) {
-    return <span onClick={() => setEditing(true)} style={{ cursor: 'pointer', display: 'block' }}>{value || '—'}</span>
+    return (
+      <span
+        className="editable-cell"
+        onClick={() => setEditing(true)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(true) } }}
+        role="button"
+        tabIndex={0}
+      >
+        {safeValue !== '' ? safeValue : placeholder}
+      </span>
+    )
   }
 
   return (
     <input className="inline-edit" value={val} autoFocus
       onChange={e => setVal(e.target.value)} onBlur={save}
-      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }} />
+      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(safeValue); setEditing(false) } }} />
   )
 }
 
@@ -33,7 +45,57 @@ function formatWeddingDate(dateStr) {
   })
 }
 
+function TimelineCardList({ entries, onUpdate, onDelete, onMove }) {
+  if (entries.length === 0) {
+    return <p className="card-list-empty">No entries yet — add your first event above.</p>
+  }
+  return (
+    <div className="card-list">
+      {entries.map((e, i) => (
+        <div key={e.id} className="data-card timeline-card">
+          <div className="data-card-header">
+            <div className="data-card-title">
+              <div className="timeline-card-time">
+                <InlineCell value={e.time} onSave={v => onUpdate(e.id, { time: v })} placeholder="Time" />
+              </div>
+              <div className="timeline-card-event">
+                <InlineCell value={e.event} onSave={v => onUpdate(e.id, { event: v })} placeholder="Event name" />
+              </div>
+            </div>
+            <div className="data-card-actions">
+              <button type="button" className="btn btn-sm" onClick={() => onMove(e.id, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+              <button type="button" className="btn btn-sm" onClick={() => onMove(e.id, 1)} disabled={i === entries.length - 1} aria-label="Move down">↓</button>
+              <button type="button" className="btn-icon" aria-label={`Delete ${e.event}`} onClick={() => onDelete(e.id)}>🗑</button>
+            </div>
+          </div>
+          <div className="data-card-grid">
+            <div className="data-card-field">
+              <span className="data-card-label">Location</span>
+              <div className="data-card-value">
+                <InlineCell value={e.location} onSave={v => onUpdate(e.id, { location: v })} />
+              </div>
+            </div>
+            <div className="data-card-field">
+              <span className="data-card-label">Responsible</span>
+              <div className="data-card-value">
+                <InlineCell value={e.responsible} onSave={v => onUpdate(e.id, { responsible: v })} />
+              </div>
+            </div>
+            <div className="data-card-field data-card-field--full">
+              <span className="data-card-label">Notes</span>
+              <div className="data-card-value">
+                <InlineCell value={e.notes} onSave={v => onUpdate(e.id, { notes: v })} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function DayTimeline() {
+  const compact = useCompactLayout(900)
   const { config, timeline: entries, setTimeline: setEntries } = useData()
   const [toast, setToast] = useState('')
 
@@ -103,30 +165,36 @@ export default function DayTimeline() {
         <button type="button" className="btn btn-primary" onClick={addEntry}>+ Add Entry</button>
       </div>
 
-      <TableScrollHint />
-      <div className="table-wrap table-wrap--scroll">
-        <table className="data-table">
-          <thead>
-            <tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Location</th><th scope="col">Responsible</th><th scope="col">Notes</th><th scope="col">Actions</th></tr>
-          </thead>
-          <tbody>
-            {entries.map((e, i) => (
-              <tr key={e.id}>
-                <td><InlineCell value={e.time} onSave={v => updateEntry(e.id, { time: v })} /></td>
-                <td><InlineCell value={e.event} onSave={v => updateEntry(e.id, { event: v })} /></td>
-                <td><InlineCell value={e.location} onSave={v => updateEntry(e.id, { location: v })} /></td>
-                <td><InlineCell value={e.responsible} onSave={v => updateEntry(e.id, { responsible: v })} /></td>
-                <td><InlineCell value={e.notes} onSave={v => updateEntry(e.id, { notes: v })} /></td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                  <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, 1)} disabled={i === entries.length - 1} aria-label="Move down">↓</button>
-                  <button type="button" className="btn-icon" style={{ opacity: 1 }} aria-label={`Delete ${e.event}`} onClick={() => deleteEntry(e.id)}>🗑</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {compact ? (
+        <TimelineCardList entries={entries} onUpdate={updateEntry} onDelete={deleteEntry} onMove={moveEntry} />
+      ) : (
+        <>
+          <TableScrollHint />
+          <div className="table-wrap table-wrap--scroll">
+            <table className="data-table">
+              <thead>
+                <tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Location</th><th scope="col">Responsible</th><th scope="col">Notes</th><th scope="col">Actions</th></tr>
+              </thead>
+              <tbody>
+                {entries.map((e, i) => (
+                  <tr key={e.id}>
+                    <td><InlineCell value={e.time} onSave={v => updateEntry(e.id, { time: v })} /></td>
+                    <td><InlineCell value={e.event} onSave={v => updateEntry(e.id, { event: v })} /></td>
+                    <td><InlineCell value={e.location} onSave={v => updateEntry(e.id, { location: v })} /></td>
+                    <td><InlineCell value={e.responsible} onSave={v => updateEntry(e.id, { responsible: v })} /></td>
+                    <td><InlineCell value={e.notes} onSave={v => updateEntry(e.id, { notes: v })} /></td>
+                    <td className="timeline-actions-cell">
+                      <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                      <button type="button" className="btn btn-sm" onClick={() => moveEntry(e.id, 1)} disabled={i === entries.length - 1} aria-label="Move down">↓</button>
+                      <button type="button" className="btn-icon" style={{ opacity: 1 }} aria-label={`Delete ${e.event}`} onClick={() => deleteEntry(e.id)}>🗑</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       <Toast message={toast} onClose={() => setToast('')} />
     </PageShell>
   )
