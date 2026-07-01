@@ -92,6 +92,8 @@ function seedGuests() {
       tableNumber: guest.tableNumber,
       notes: guest.notes,
       inviteType: guest.inviteType || '',
+      address: guest.address || '',
+      inviteSent: !!guest.inviteSent,
       order: order++,
     });
   }

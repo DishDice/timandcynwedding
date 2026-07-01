@@ -14,7 +14,35 @@ const INVITE_TYPES = [
   { value: 'physical', label: 'Physical' },
 ]
 
-function InlineCell({ value, onSave }) {
+const DEFAULT_COLUMN_ORDER = [
+  'name', 'group', 'rsvp', 'inviteType', 'inviteSent', 'address', 'dietary', 'tableNumber', 'notes',
+]
+
+const COLUMN_LABELS = {
+  name: 'Name',
+  group: 'Group',
+  rsvp: 'RSVP',
+  inviteType: 'Invite',
+  inviteSent: 'Invite Sent',
+  address: 'Address',
+  dietary: 'Dietary',
+  tableNumber: 'Table',
+  notes: 'Notes',
+}
+
+function loadColumnOrder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('guests:columnOrder'))
+    if (!Array.isArray(saved)) return DEFAULT_COLUMN_ORDER
+    const valid = saved.filter(id => DEFAULT_COLUMN_ORDER.includes(id))
+    const missing = DEFAULT_COLUMN_ORDER.filter(id => !valid.includes(id))
+    return [...valid, ...missing]
+  } catch {
+    return DEFAULT_COLUMN_ORDER
+  }
+}
+
+function InlineCell({ value, onSave, multiline = false }) {
   const safeValue = value ?? ''
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(safeValue)
@@ -23,6 +51,11 @@ function InlineCell({ value, onSave }) {
   const save = () => {
     setEditing(false)
     if (val !== value) onSave(val)
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') { setVal(value ?? ''); setEditing(false) }
+    if (!multiline && e.key === 'Enter') e.target.blur()
   }
 
   if (!editing) {
@@ -39,10 +72,24 @@ function InlineCell({ value, onSave }) {
     )
   }
 
+  if (multiline) {
+    return (
+      <textarea
+        className="inline-edit draft-textarea"
+        value={val}
+        rows={2}
+        autoFocus
+        onChange={e => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={onKeyDown}
+      />
+    )
+  }
+
   return (
     <input className="inline-edit" value={val} autoFocus
       onChange={e => setVal(e.target.value)} onBlur={save}
-      onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(safeValue); setEditing(false) } }} />
+      onKeyDown={onKeyDown} />
   )
 }
 
@@ -91,6 +138,18 @@ function GuestCardList({ guests, assignableGroups, onUpdate, onDelete }) {
               </div>
             </div>
             <div className="data-card-field">
+              <span className="data-card-label">Invite Sent</span>
+              <div className="data-card-value">
+                <input
+                  type="checkbox"
+                  className="task-checkbox"
+                  checked={!!g.inviteSent}
+                  aria-label={`Invite sent for ${g.name}`}
+                  onChange={() => onUpdate(g.id, { inviteSent: !g.inviteSent })}
+                />
+              </div>
+            </div>
+            <div className="data-card-field">
               <span className="data-card-label">Table</span>
               <div className="data-card-value">
                 <InlineCell value={g.tableNumber} onSave={v => onUpdate(g.id, { tableNumber: v })} />
@@ -103,9 +162,15 @@ function GuestCardList({ guests, assignableGroups, onUpdate, onDelete }) {
               </div>
             </div>
             <div className="data-card-field data-card-field--full">
+              <span className="data-card-label">Address</span>
+              <div className="data-card-value">
+                <InlineCell value={g.address} multiline onSave={v => onUpdate(g.id, { address: v })} />
+              </div>
+            </div>
+            <div className="data-card-field data-card-field--full">
               <span className="data-card-label">Notes</span>
               <div className="data-card-value">
-                <InlineCell value={g.notes} onSave={v => onUpdate(g.id, { notes: v })} />
+                <InlineCell value={g.notes} multiline onSave={v => onUpdate(g.id, { notes: v })} />
               </div>
             </div>
           </div>
@@ -120,10 +185,13 @@ export default function Guests() {
   const { guests, setGuests } = useData()
   const [filterGroup, setFilterGroup] = useState(() => localStorage.getItem('guests:group') || 'All')
   const [filterRsvp, setFilterRsvp] = useState(() => localStorage.getItem('guests:rsvp') || 'All')
+  const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
+  const [dragCol, setDragCol] = useState(null)
   const [toast, setToast] = useState('')
 
   useEffect(() => { localStorage.setItem('guests:group', filterGroup) }, [filterGroup])
   useEffect(() => { localStorage.setItem('guests:rsvp', filterRsvp) }, [filterRsvp])
+  useEffect(() => { localStorage.setItem('guests:columnOrder', JSON.stringify(columnOrder)) }, [columnOrder])
 
   const updateGuest = async (id, changes) => {
     let snapshot
@@ -163,17 +231,6 @@ export default function Guests() {
     }
   }
 
-  const exportCsv = () => {
-    const headers = ['Name', 'Group', 'RSVP', 'Invite', 'Dietary', 'Table', 'Notes']
-    const rows = filtered.map(g => [g.name, g.group, g.rsvp, g.inviteType, g.dietary, g.tableNumber, g.notes])
-    const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'guests.csv'
-    a.click()
-  }
-
   const allGroups = ['All', ...new Set([...DEFAULT_GROUPS, ...guests.map(g => g.group).filter(Boolean)])]
   const assignableGroups = [...new Set([...DEFAULT_GROUPS, ...guests.map(g => g.group).filter(Boolean)])]
 
@@ -187,6 +244,82 @@ export default function Guests() {
   const confirmed = guests.filter(g => g.rsvp === 'confirmed').length
   const declined = guests.filter(g => g.rsvp === 'declined').length
   const pending = guests.filter(g => g.rsvp === 'pending').length
+
+  const exportCsv = () => {
+    const headers = columnOrder.map(id => COLUMN_LABELS[id])
+    const rows = filtered.map(g => columnOrder.map(id => {
+      if (id === 'inviteType') return g.inviteType || ''
+      if (id === 'inviteSent') return g.inviteSent ? 'Yes' : 'No'
+      return g[id] || ''
+    }))
+    const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'guests.csv'
+    a.click()
+  }
+
+  const handleColumnDrop = (targetId) => {
+    if (!dragCol || dragCol === targetId) return
+    setColumnOrder(prev => {
+      const next = [...prev]
+      const from = next.indexOf(dragCol)
+      const to = next.indexOf(targetId)
+      if (from === -1 || to === -1) return prev
+      next.splice(from, 1)
+      next.splice(to, 0, dragCol)
+      return next
+    })
+    setDragCol(null)
+  }
+
+  const renderCell = (colId, g) => {
+    switch (colId) {
+      case 'name':
+        return <InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} />
+      case 'group':
+        return (
+          <select className="filter-select" value={g.group || ''} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }} aria-label={`Group for ${g.name}`}>
+            {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
+          </select>
+        )
+      case 'rsvp':
+        return <StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} />
+      case 'inviteType':
+        return (
+          <select
+            className="filter-select"
+            value={g.inviteType || ''}
+            onChange={e => updateGuest(g.id, { inviteType: e.target.value })}
+            style={{ fontSize: '0.8rem' }}
+            aria-label={`Invite type for ${g.name}`}
+          >
+            {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
+          </select>
+        )
+      case 'inviteSent':
+        return (
+          <input
+            type="checkbox"
+            className="task-checkbox"
+            checked={!!g.inviteSent}
+            aria-label={`Invite sent for ${g.name}`}
+            onChange={() => updateGuest(g.id, { inviteSent: !g.inviteSent })}
+          />
+        )
+      case 'address':
+        return <InlineCell value={g.address} multiline onSave={v => updateGuest(g.id, { address: v })} />
+      case 'dietary':
+        return <InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} />
+      case 'tableNumber':
+        return <InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} />
+      case 'notes':
+        return <InlineCell value={g.notes} multiline onSave={v => updateGuest(g.id, { notes: v })} />
+      default:
+        return null
+    }
+  }
 
   return (
     <PageShell>
@@ -224,38 +357,41 @@ export default function Guests() {
         />
       ) : (
         <>
+          <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 8 }}>
+            Drag column headers to rearrange
+          </p>
           <TableScrollHint />
           <div className="table-wrap table-wrap--scroll">
             <table className="data-table guests-table">
               <thead>
-                <tr><th scope="col">Name</th><th scope="col">Group</th><th scope="col">RSVP</th><th scope="col">Invite</th><th scope="col">Dietary</th><th scope="col">Table</th><th scope="col">Notes</th><th scope="col"></th></tr>
+                <tr>
+                  {columnOrder.map(colId => (
+                    <th
+                      key={colId}
+                      scope="col"
+                      className={`th-draggable ${dragCol === colId ? 'th-dragging' : ''} ${colId === 'inviteSent' ? 'col-check' : ''}`}
+                      draggable
+                      onDragStart={() => setDragCol(colId)}
+                      onDragEnd={() => setDragCol(null)}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={() => handleColumnDrop(colId)}
+                    >
+                      <span className="th-draggable-label">{COLUMN_LABELS[colId]}</span>
+                    </th>
+                  ))}
+                  <th scope="col" className="col-actions"></th>
+                </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 && <EmptyRow colSpan={8} />}
+                {filtered.length === 0 && <EmptyRow colSpan={columnOrder.length + 1} />}
                 {filtered.map(g => (
                   <tr key={g.id}>
-                    <td><InlineCell value={g.name} onSave={v => updateGuest(g.id, { name: v })} /></td>
-                    <td>
-                      <select className="filter-select" value={g.group || ''} onChange={e => updateGuest(g.id, { group: e.target.value })} style={{ fontSize: '0.8rem' }} aria-label={`Group for ${g.name}`}>
-                        {assignableGroups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
-                      </select>
+                    {columnOrder.map(colId => (
+                      <td key={colId} className={colId === 'address' ? 'col-address' : colId === 'inviteSent' ? 'col-check' : undefined}>{renderCell(colId, g)}</td>
+                    ))}
+                    <td className="col-actions">
+                      <button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => deleteGuest(g.id)}>🗑</button>
                     </td>
-                    <td><StatusBadge value={g.rsvp} type="rsvp" onChange={v => updateGuest(g.id, { rsvp: v })} /></td>
-                    <td>
-                      <select
-                        className="filter-select"
-                        value={g.inviteType || ''}
-                        onChange={e => updateGuest(g.id, { inviteType: e.target.value })}
-                        style={{ fontSize: '0.8rem' }}
-                        aria-label={`Invite type for ${g.name}`}
-                      >
-                        {INVITE_TYPES.map(t => <option key={t.value || 'unset'} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </td>
-                    <td><InlineCell value={g.dietary} onSave={v => updateGuest(g.id, { dietary: v })} /></td>
-                    <td><InlineCell value={g.tableNumber} onSave={v => updateGuest(g.id, { tableNumber: v })} /></td>
-                    <td><InlineCell value={g.notes} onSave={v => updateGuest(g.id, { notes: v })} /></td>
-                    <td><button type="button" className="btn-icon" aria-label={`Delete ${g.name}`} onClick={() => deleteGuest(g.id)}>🗑</button></td>
                   </tr>
                 ))}
               </tbody>
