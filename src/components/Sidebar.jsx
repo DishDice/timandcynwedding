@@ -6,6 +6,7 @@ const NAV = [
   { to: '/vendors', label: 'Vendors', short: 'Vendors', icon: '★' },
   { to: '/checklist', label: 'Checklist', short: 'Tasks', icon: '✓' },
   { to: '/guests', label: 'Guests', short: 'Guests', icon: '◎' },
+  { to: '/seating', label: 'Seating Chart', short: 'Seats', icon: '◉' },
   { to: '/documents', label: 'Documents', short: 'Docs', icon: '▤' },
   { to: '/notes', label: 'Notes', short: 'Notes', icon: '✎' },
   { to: '/timeline', label: 'Day Timeline', short: 'Day', icon: '⏱' },

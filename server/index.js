@@ -13,6 +13,7 @@ import vendorsRoutes from './routes/vendors.js';
 import documentsRoutes from './routes/documents.js';
 import notesRoutes from './routes/notes.js';
 import timelineRoutes from './routes/timeline.js';
+import seatingRoutes from './routes/seating.js';
 import syncRoutes from './routes/sync.js';
 import { getDbInfo } from './db.js';
 import { getSeedDiagnostics } from './seedDetect.js';
@@ -70,6 +71,7 @@ app.use('/api/vendors', vendorsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/timeline', timelineRoutes);
+app.use('/api/seating', seatingRoutes);
 app.use('/api/sync', syncRoutes);
 
 const bannerDir = ensureBannerStorage();

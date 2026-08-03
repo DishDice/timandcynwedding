@@ -37,6 +37,7 @@ export function cacheHasUserEdits() {
   const vendors = readCache('cache:vendors', [])
   const documents = readCache('cache:documents', [])
   const timeline = readCache('cache:timeline', [])
+  const seating = readCache('cache:seating', [])
 
   if (guests.some(g => g.rsvp !== 'pending' || g.dietary || g.tableNumber)) return true
   if (checklist.some(t => t.done || t.dueDate)) return true
@@ -50,6 +51,7 @@ export function cacheHasUserEdits() {
   if (documents.length > 0) return true
   if (timeline.length !== 17) return true
   if (timeline.some(e => e.notes)) return true
+  if (seating.some(t => Array.isArray(t.guestIds) && t.guestIds.some(Boolean))) return true
 
   const meta = readCache('cache:meta', null)
   if (meta?.hadUserEdits) return true
@@ -77,6 +79,7 @@ export function buildRestorePayload(serverGuests, serverChecklist) {
   const vendors = readCache('cache:vendors', [])
   const documents = readCache('cache:documents', [])
   const timeline = readCache('cache:timeline', [])
+  const seating = readCache('cache:seating', [])
   const config = readCache('cache:config', null)
   const bannerPhotos = readCache('cache:bannerPhotos', [])
 
@@ -87,6 +90,7 @@ export function buildRestorePayload(serverGuests, serverChecklist) {
   if (vendors.length > 0) payload.vendors = vendors
   if (documents.length > 0) payload.documents = documents
   if (timeline.length > 0) payload.timeline = timeline
+  if (seating.length > 0) payload.seating = seating
   if (config) payload.config = config
   if (bannerPhotos.length > 0) payload.bannerPhotos = bannerPhotos
 

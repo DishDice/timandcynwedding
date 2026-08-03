@@ -15,13 +15,14 @@ export function DataProvider({ children }) {
   const [vendors, setVendors] = useState(() => readCache('cache:vendors', []))
   const [documents, setDocuments] = useState(() => readCache('cache:documents', []))
   const [timeline, setTimeline] = useState(() => readCache('cache:timeline', []))
+  const [seating, setSeating] = useState(() => readCache('cache:seating', []))
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
   const [restoreAvailable, setRestoreAvailable] = useState(false)
 
   const hasCache = budgetItems.length > 0 || checklist.length > 0 || guests.length > 0
 
-  const applyData = useCallback((cfg, budget, chk, gst, vnd, docs, tl) => {
+  const applyData = useCallback((cfg, budget, chk, gst, vnd, docs, tl, seat) => {
     setConfig(cfg.config)
     setBannerPhotos(cfg.bannerPhotos || [])
     setBudgetCategories(budget.categories)
@@ -31,12 +32,13 @@ export function DataProvider({ children }) {
     setVendors(vnd)
     setDocuments(docs)
     setTimeline(tl)
+    setSeating(seat || [])
   }, [])
 
   const loadAll = useCallback(async () => {
     try {
       setError(null)
-      let [cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
+      let [cfg, budget, chk, gst, vnd, docs, tl, seat] = await Promise.all([
         api.get('/api/config'),
         api.get('/api/budget'),
         api.get('/api/checklist'),
@@ -44,6 +46,7 @@ export function DataProvider({ children }) {
         api.get('/api/vendors'),
         api.get('/api/documents'),
         api.get('/api/timeline'),
+        api.get('/api/seating'),
       ])
 
       const canRestore = !!buildRestorePayload(gst, chk)
@@ -53,7 +56,7 @@ export function DataProvider({ children }) {
         const didRestore = await restoreFromCacheIfNeeded(gst, chk)
         if (didRestore) {
           setRestoreAvailable(false)
-          ;[cfg, budget, chk, gst, vnd, docs, tl] = await Promise.all([
+          ;[cfg, budget, chk, gst, vnd, docs, tl, seat] = await Promise.all([
             api.get('/api/config'),
             api.get('/api/budget'),
             api.get('/api/checklist'),
@@ -61,6 +64,7 @@ export function DataProvider({ children }) {
             api.get('/api/vendors'),
             api.get('/api/documents'),
             api.get('/api/timeline'),
+            api.get('/api/seating'),
           ])
         }
       } catch (restoreErr) {
@@ -68,7 +72,7 @@ export function DataProvider({ children }) {
         if (canRestore) setRestoreAvailable(true)
       }
 
-      applyData(cfg, budget, chk, gst, vnd, docs, tl)
+      applyData(cfg, budget, chk, gst, vnd, docs, tl, seat)
     } catch (e) {
       setError(e.message || 'Failed to load data')
     } finally {
@@ -93,12 +97,13 @@ export function DataProvider({ children }) {
     writeCache('cache:vendors', vendors)
     writeCache('cache:documents', documents)
     writeCache('cache:timeline', timeline)
+    writeCache('cache:seating', seating)
     const prevMeta = readCache('cache:meta', {})
     writeCache('cache:meta', {
       savedAt: new Date().toISOString(),
       hadUserEdits: prevMeta.hadUserEdits || cacheHasUserEdits(),
     })
-  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline])
+  }, [loaded, config, bannerPhotos, budgetCategories, budgetItems, checklist, guests, vendors, documents, timeline, seating])
 
   const restoreFromBrowser = useCallback(async () => {
     const gst = await api.get('/api/guests')
@@ -122,6 +127,7 @@ export function DataProvider({ children }) {
       vendors, setVendors,
       documents, setDocuments,
       timeline, setTimeline,
+      seating, setSeating,
       loaded,
       error,
       restoreAvailable,

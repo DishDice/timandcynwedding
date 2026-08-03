@@ -6,6 +6,7 @@ import Checklist from '../pages/Checklist'
 import Guests from '../pages/Guests'
 import Documents from '../pages/Documents'
 import Notes from '../pages/Notes'
+import SeatingChart from '../pages/SeatingChart'
 import DayTimeline from '../pages/DayTimeline'
 
 const ROUTES = [
@@ -14,6 +15,7 @@ const ROUTES = [
   { path: '/vendors', Component: Vendors },
   { path: '/checklist', Component: Checklist },
   { path: '/guests', Component: Guests },
+  { path: '/seating', Component: SeatingChart },
   { path: '/documents', Component: Documents },
   { path: '/notes', Component: Notes },
   { path: '/timeline', Component: DayTimeline },

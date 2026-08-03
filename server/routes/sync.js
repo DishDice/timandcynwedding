@@ -5,7 +5,7 @@ import { populateDefaultsIfEmpty } from '../seedData.js';
 const router = Router();
 
 router.post('/restore', (req, res) => {
-  const { guests, checklist, budgetCategories, budgetItems, vendors, documents, timeline, config, bannerPhotos } = req.body;
+  const { guests, checklist, budgetCategories, budgetItems, vendors, documents, timeline, seating, config, bannerPhotos } = req.body;
   let restored = [];
 
   if (Array.isArray(guests) && guests.length > 0) {
@@ -44,6 +44,11 @@ router.post('/restore', (req, res) => {
   if (Array.isArray(timeline) && timeline.length > 0) {
     db.replaceAll('timeline:', timeline, e => `timeline:${e.id}`);
     restored.push(`timeline (${timeline.length})`);
+  }
+
+  if (Array.isArray(seating) && seating.length > 0) {
+    db.replaceAll('seating:', seating, t => `seating:${t.id}`);
+    restored.push(`seating (${seating.length})`);
   }
 
   if (config) {
@@ -85,6 +90,7 @@ router.get('/backup', (_req, res) => {
     vendors: db.list('vendor:').map(k => db.get(k)),
     documents: db.list('document:').map(k => db.get(k)),
     timeline: db.list('timeline:').map(k => db.get(k)),
+    seating: db.list('seating:').map(k => db.get(k)),
     meta: db.get('meta:system'),
   });
 });

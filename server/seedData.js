@@ -2,6 +2,7 @@ import { db } from './db.js';
 import { BUDGET_CATEGORIES } from './budgetSeed.js';
 import { CHECKLIST_TASKS } from './checklistSeed.js';
 import { GUEST_SEED } from './guestSeed.js';
+import { SEATING_SEED } from './seatingSeed.js';
 
 let idCounter = Date.now();
 
@@ -107,6 +108,19 @@ function seedTimeline() {
   }
 }
 
+function seedSeating() {
+  let order = 0;
+  for (const table of SEATING_SEED) {
+    const id = nextId();
+    db.set(`seating:${id}`, {
+      id,
+      ...table,
+      guestIds: Array(table.seats).fill(null),
+      order: order++,
+    });
+  }
+}
+
 /**
  * Populate default wedding data only for collections that are currently empty.
  * Never overwrites existing records.
@@ -132,6 +146,11 @@ export function populateDefaultsIfEmpty() {
   if (db.list('timeline:').length === 0) {
     seedTimeline();
     populated.push(`timeline (${TIMELINE_SEED.length} entries)`);
+  }
+
+  if (db.list('seating:').length === 0) {
+    seedSeating();
+    populated.push(`seating (${SEATING_SEED.length} tables)`);
   }
 
   if (populated.length > 0) {
